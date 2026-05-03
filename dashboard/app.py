@@ -143,6 +143,20 @@ def get_action_message(risk_label: str) -> str:
     return "Surveillance normale : le moteur ne présente pas de signal prioritaire selon le RUL prédit."
 
 
+def build_risk_summary(test_pred: pd.DataFrame) -> pd.DataFrame:
+    risk_summary = (
+        test_pred["risk_label"]
+        .value_counts()
+        .rename_axis("Risque")
+        .reset_index(name="Nombre de moteurs")
+    )
+
+    risk_summary["risk_order"] = risk_summary["Risque"].map(RISK_ORDER)
+    risk_summary = risk_summary.sort_values("risk_order").drop(columns="risk_order")
+
+    return risk_summary
+
+
 test_pred, test_features, metrics = load_data()
 
 test_metrics = metrics["test_last_cycle"]["random_forest"]
@@ -159,14 +173,11 @@ st.title("NASA CMAPSS — Tableau de bord de Maintenance Prédictive")
 
 st.markdown(
     """
-Ce dashboard transforme les prédictions de **durée de vie résiduelle (RUL)** 
-en outil d'aide à la décision pour la maintenance industrielle.
+Ce dashboard transforme les prédictions de **durée de vie résiduelle (RUL)** en outil d'aide à la décision pour la maintenance industrielle.
 
-**Question métier principale : quels moteurs doivent être surveillés ou maintenus en priorité ?**
+**Question métier : quels moteurs doivent être surveillés ou maintenus en priorité ?**
 
-Le modèle prédit le nombre de cycles restants avant panne à partir des signaux 
-capteurs du dataset **NASA CMAPSS FD001**, un dataset de référence en maintenance 
-prédictive issu de la compétition NASA/PHM'08.
+Le modèle prédit le nombre de cycles restants avant panne à partir des signaux capteurs du dataset **NASA CMAPSS FD001**, issu de la compétition NASA/PHM'08.
 """
 )
 
@@ -207,11 +218,25 @@ col4.metric(
 )
 
 st.info(
-    """
-**Règle de décision utilisée :**  
-Critique : RUL prédit ≤ 30 cycles · À surveiller : RUL prédit ≤ 60 cycles · Stable : RUL prédit > 60 cycles
-"""
+    "**Règle de décision :** Critique ≤ 30 cycles · À surveiller ≤ 60 cycles · Stable > 60 cycles"
 )
+
+risk_summary = build_risk_summary(test_pred)
+
+fig_risk = px.bar(
+    risk_summary,
+    x="Risque",
+    y="Nombre de moteurs",
+    color="Risque",
+    color_discrete_map=RISK_COLORS,
+    title="Répartition des moteurs par niveau de risque",
+    text="Nombre de moteurs",
+)
+
+fig_risk.update_layout(showlegend=False)
+fig_risk.update_traces(textposition="outside")
+
+st.plotly_chart(fig_risk, use_container_width=True)
 
 priority_table = prepare_display_table(test_pred)
 
@@ -226,11 +251,9 @@ st.header("2. Analyse détaillée d'un moteur")
 
 st.markdown(
     """
-Sélectionnez un moteur pour visualiser son RUL prédit, son niveau de risque 
-et l'évolution de ses capteurs au fil des cycles observés.
+Sélectionnez un moteur pour visualiser son RUL prédit, son niveau de risque et l'évolution de ses capteurs.
 
-Le **RUL réel** est affiché ici car le dataset NASA fournit les valeurs de référence, 
-ce qui permet d'évaluer objectivement la précision des prédictions.
+Le **RUL réel** est affiché car le dataset NASA fournit les valeurs de référence, ce qui permet d'évaluer les prédictions.
 """
 )
 
@@ -305,23 +328,17 @@ st.caption(
     """
 Le signal brut montre les mesures cycle par cycle. 
 La moyenne glissante sur 5 cycles lisse les fluctuations locales pour rendre la tendance plus lisible.
-
-Les données test sont volontairement tronquées avant la panne : le nombre de cycles observés est donc limité par construction du dataset.
 """
 )
 
 st.divider()
 
-st.header("3. Performance du modèle — Peut-on faire confiance aux prédictions ?")
+st.header("3. Performance du modèle — Fiabilité des prédictions")
 
 st.markdown(
     """
-Le modèle est évalué sur les 100 moteurs test du dataset NASA CMAPSS FD001.  
-L'évaluation porte sur le **dernier cycle observé** de chaque moteur : c'est le scénario opérationnel 
-dans lequel on prédit le RUL à partir du dernier état connu.
-
-Dans un cas industriel réel, le RUL réel ne serait connu qu'après la fin de vie du moteur. 
-Ici, il est disponible car le dataset NASA fournit les valeurs de référence.
+Le modèle est évalué sur les 100 moteurs test.  
+L'évaluation porte sur le **dernier cycle observé** de chaque moteur : c'est le scénario opérationnel principal.
 """
 )
 
@@ -406,12 +423,9 @@ st.header("4. Comparaison avec une baseline")
 
 st.markdown(
     """
-Pour vérifier que le modèle principal apporte une vraie valeur, le **Random Forest** 
-est comparé à une **Ridge Regression**, utilisée comme baseline simple et interprétable.
+Le **Random Forest** est comparé à une **Ridge Regression**, utilisée comme baseline simple et interprétable.
 
-L'évaluation est faite sur deux niveaux :
-- **Tous les cycles** : prédiction du RUL à chaque cycle de chaque moteur.
-- **Dernier cycle par moteur** : scénario opérationnel principal.
+L'objectif est de vérifier que le modèle retenu apporte un gain mesurable par rapport à une approche plus simple.
 """
 )
 
@@ -444,7 +458,7 @@ st.markdown(
 Ce dashboard répond à trois questions :
 
 1. **Quels moteurs sont prioritaires pour la maintenance ?**  
-   → Vue opérationnelle et table de priorisation.
+   → Vue opérationnelle, graphique des risques et table de priorisation.
 
 2. **Quel est l'état détaillé d'un moteur donné ?**  
    → Analyse individuelle avec RUL prédit, niveau de risque et courbes capteurs.
