@@ -32,6 +32,23 @@ Le dashboard permet donc de passer d'une prédiction ML à une décision métier
 
 ---
 
+## Résultats clés
+
+| Élément | Résultat |
+|---|---:|
+| Dataset | NASA CMAPSS FD001 |
+| Nombre de moteurs test | 100 |
+| Meilleur modèle retenu | Random Forest Regressor |
+| RMSE test | **23.16 cycles** |
+| MAE test | **16.72 cycles** |
+| NASA Score test | **5,331.90** |
+| Dashboard | Streamlit déployé en ligne |
+
+Le modèle obtient une erreur moyenne absolue de **16.72 cycles** sur le test set NASA.  
+Les prédictions sont ensuite converties en niveaux de risque afin de prioriser les moteurs nécessitant une intervention de maintenance.
+
+---
+
 ## Dashboard
 
 **Dashboard live** → [nasa-cmapss-rul-prediction.streamlit.app](https://nasa-cmapss-rul-prediction.streamlit.app/)
@@ -80,7 +97,7 @@ Le problème est formulé comme une tâche de **régression supervisée** :
 ```text
 Entrée  : signaux capteurs + features temporelles
 Sortie  : RUL estimé en nombre de cycles
-Modèle  : Ridge Regression baseline + Random Forest Regressor
+Modèles : Ridge Regression baseline + Random Forest Regressor
 ```
 
 ---
@@ -218,7 +235,11 @@ Pour chaque capteur retenu, deux types de features temporelles sont ajoutés :
 - **Rolling mean sur 5 cycles** : lisse les fluctuations locales et rend la tendance plus lisible.
 - **Delta cycle à cycle** : capture la variation instantanée du signal.
 
-Pour FD001 : 8 capteurs bruts + 8 rolling means + 8 deltas = **24 features**
+Pour FD001 :
+
+```text
+8 capteurs bruts + 8 rolling means + 8 deltas = 24 features
+```
 
 ---
 
@@ -255,9 +276,11 @@ où :
 - $\widehat{RUL}_i$ correspond au RUL prédit ;
 - $n$ correspond au nombre d'observations.
 
-Cette métrique est facilement interprétable car elle est exprimée directement en nombre de cycles :
+Cette métrique est facilement interprétable car elle est exprimée directement en nombre de cycles.
 
-> En moyenne, le modèle se trompe de X cycles.
+> Sur le test set NASA, le modèle se trompe en moyenne de **16.72 cycles**.
+
+---
 
 ### RMSE — Root Mean Squared Error
 
@@ -271,7 +294,7 @@ Elle mesure l'erreur moyenne du modèle en donnant plus de poids aux grandes err
 
 Contrairement à la MSE, la RMSE est exprimée dans la même unité que la cible, c'est-à-dire en nombre de cycles. Elle est donc plus facile à interpréter dans un contexte de maintenance prédictive.
 
-> Une RMSE de 23.16 signifie que l'erreur typique du modèle est d'environ 23 cycles.
+> Sur le test set NASA, le modèle obtient une **RMSE de 23.16 cycles**.
 
 ---
 
@@ -312,7 +335,8 @@ où :
 Le NASA Score n'est pas borné et ne s'interprète pas comme un pourcentage ou une note sur 100.  
 Plus le score est faible, meilleur est le modèle. Un score de 0 correspondrait à des prédictions parfaites.
 
-Pour donner un ordre de grandeur, un score de 5 331.90 sur 100 moteurs correspond à une pénalité asymétrique moyenne d'environ 53.3 points par moteur. Cette valeur doit surtout être interprétée par comparaison avec d'autres modèles ou baselines.
+> Sur le test set NASA, le modèle obtient un **NASA Score de 5 331.90** sur 100 moteurs, soit une pénalité asymétrique moyenne d'environ **53.3 points par moteur**.  
+> Comme ce score n'est pas borné, il s'interprète surtout par comparaison avec d'autres modèles ou baselines.
 
 En pratique, cette métrique permet d'évaluer non seulement la précision statistique du modèle, mais aussi la criticité métier des erreurs de prédiction.
 
@@ -330,19 +354,21 @@ Deux modèles sont comparés :
 ### Résultats validation — tous les cycles
 
 | Modèle | RMSE | MAE | Score NASA |
-|---|---|---|---|
+|---|---:|---:|---:|
 | Ridge baseline | 24.73 | 19.39 | 58,702.96 |
 | Random Forest | **21.60** | **15.98** | 91,895.86 |
 
 Le Random Forest améliore la RMSE et la MAE par rapport à la baseline Ridge.  
 Son score NASA est cependant plus élevé, ce qui indique que certaines erreurs sont davantage pénalisées par la métrique asymétrique PHM'08.
 
+Cela montre qu'un modèle peut être meilleur en erreur moyenne tout en étant moins favorable selon une métrique métier asymétrique. Le choix du modèle dépend donc du compromis recherché entre précision globale et criticité des erreurs.
+
 ---
 
 ### Résultats test NASA — dernier cycle observé
 
 | Métrique | Valeur |
-|---|---|
+|---|---:|
 | RMSE | **23.16 cycles** |
 | MAE | **16.72 cycles** |
 | Score NASA/PHM'08 | **5,331.90** |
@@ -356,6 +382,24 @@ Contrairement au train set, les moteurs test sont tronqués avant la panne : le 
 > Une évaluation "last cycle" sur le split validation interne donne des scores très faibles, car les moteurs du train set sont observés jusqu'à la panne — le dernier cycle correspond donc à un RUL proche de zéro.  
 > Cette métrique n'est pas directement comparable au test set NASA, où les moteurs sont volontairement tronqués avant défaillance.  
 > **La performance principale à retenir : validation all cycles RMSE 21.60 — test NASA RMSE 23.16.**
+
+---
+
+## Interprétation des résultats
+
+Le Random Forest obtient de meilleures performances que la baseline Ridge sur les métriques classiques, avec une RMSE validation de **21.60 cycles** et une RMSE test de **23.16 cycles**.
+
+Cependant, son score NASA validation est supérieur à celui de la baseline Ridge. Cela signifie que, même si le Random Forest réduit l'erreur moyenne, certaines erreurs sont plus fortement pénalisées par la métrique asymétrique PHM'08, notamment les surestimations du RUL.
+
+Cette observation est importante : en maintenance prédictive, le meilleur modèle statistique n'est pas toujours le plus sûr opérationnellement.
+
+Le Random Forest est retenu ici comme modèle principal car il offre le meilleur compromis global sur les métriques classiques et permet de produire des prédictions exploitables dans un dashboard métier. Dans un contexte industriel réel, le choix final du modèle devrait intégrer :
+
+- la précision globale ;
+- la fréquence des surestimations du RUL ;
+- le coût d'une maintenance anticipée ;
+- le coût d'une panne non anticipée ;
+- les contraintes opérationnelles de l'équipe maintenance.
 
 ---
 
@@ -382,13 +426,24 @@ Le dashboard répond à trois questions opérationnelles :
 
 ---
 
+## Remarque sur l'usage du dashboard
+
+Le dashboard est conçu comme un outil de démonstration analytique et d'aide à la décision.
+
+Dans ce projet, le RUL réel est affiché pour permettre d'évaluer la qualité des prédictions sur le test set NASA.  
+Dans un cas d'usage industriel réel, le RUL réel ne serait pas connu à l'avance : seules les prédictions du modèle et les signaux capteurs seraient disponibles.
+
+Le dashboard illustre donc la manière dont un modèle de prédiction de RUL peut être transformé en outil de priorisation opérationnelle.
+
+---
+
 ## Ce que j'ai appris — Décisions techniques clés
 
 - **Séparer preprocessing et feature engineering** permet de mieux contrôler ce qu'on donne au modèle et facilite les itérations.
 - **Valider par moteur et non par ligne** est essentiel sur des données de séries temporelles pour éviter le data leakage.
-- **Construire un score expliquable** avant d'appliquer du ML force à comprendre le domaine et valide les choix de features.
-- **La métrique "last cycle" sur le train set est trompeuse** — les moteurs train vont jusqu'à la panne, contrairement au test set NASA.
-- **Un Random Forest sans optimisation avancée** donne déjà des résultats solides sur CMAPSS FD001 et constitue une bonne baseline ML non linéaire.
+- **Relier les métriques ML à un risque métier** permet de dépasser une simple évaluation statistique et de rendre le modèle exploitable pour la maintenance.
+- **La métrique "last cycle" sur le train set est trompeuse** : les moteurs train vont jusqu'à la panne, contrairement au test set NASA.
+- **Un Random Forest sans optimisation avancée** constitue une baseline non linéaire solide, mais son score NASA montre qu'une amélioration future devrait cibler spécifiquement les erreurs de surestimation du RUL.
 
 ---
 
@@ -404,6 +459,21 @@ Le dashboard répond à trois questions opérationnelles :
 | Visualisation | Plotly, Streamlit |
 | Notebook | Jupyter, matplotlib, seaborn |
 | Sérialisation | joblib |
+
+---
+
+## Reproductibilité
+
+Le projet est organisé pour être relancé de bout en bout :
+
+1. chargement des données brutes NASA ;
+2. preprocessing ;
+3. feature engineering ;
+4. entraînement des modèles ;
+5. génération des prédictions ;
+6. lancement du dashboard Streamlit.
+
+Les artefacts générés sont sauvegardés dans `data/processed/` et `models/`, ce qui permet de séparer clairement les données brutes, les données transformées, les prédictions et le modèle entraîné.
 
 ---
 
@@ -440,7 +510,7 @@ streamlit run dashboard/app.py
 
 Après exécution complète du pipeline :
 
-```
+```text
 data/processed/train_processed.csv
 data/processed/test_processed.csv
 data/processed/train_clean.csv
@@ -457,10 +527,11 @@ models/random_forest_rul.joblib
 
 ## Limites
 
-- Pipeline calibrée sur **FD001** uniquement — la généralisation à FD002/FD003/FD004 nécessite une adaptation du preprocessing pour les conditions opérationnelles multiples.
-- Le seuil de suppression des capteurs (σ < 0.5) et la fenêtre rolling mean (5 cycles) sont justifiés par l'EDA mais pourraient être optimisés.
+- Le pipeline est calibré sur **FD001** uniquement : la généralisation à FD002, FD003 et FD004 nécessite une adaptation du preprocessing pour les conditions opérationnelles multiples.
+- Le seuil de suppression des capteurs, fixé à un écart-type inférieur à 0.5, est justifié par l'EDA mais pourrait être optimisé.
+- La fenêtre de rolling mean de 5 cycles est un choix simple et interprétable, mais pourrait être comparée à d'autres fenêtres.
 - Le Random Forest ne modélise pas explicitement les dépendances temporelles longues.
-- Pas d'optimisation des hyperparamètres — première approche ML classique.
+- Le projet ne comporte pas encore d'optimisation avancée des hyperparamètres.
 
 ---
 
@@ -468,10 +539,12 @@ models/random_forest_rul.joblib
 
 - Généraliser le pipeline aux datasets FD002, FD003 et FD004.
 - Optimiser le cap RUL, la fenêtre rolling mean et les hyperparamètres par validation croisée.
+- Analyser séparément les erreurs de sous-estimation et de surestimation du RUL afin d'optimiser le modèle selon le risque métier.
 - Tester des modèles dédiés aux séries temporelles : LSTM, GRU, Transformer.
 - Ajouter l'importance des variables dans le dashboard.
-- MLflow pour le suivi des expériences.
-- Dockeriser l'application et exposer le modèle via FastAPI.
+- Ajouter MLflow pour le suivi des expériences.
+- Dockeriser l'application.
+- Exposer le modèle via FastAPI.
 
 ---
 
