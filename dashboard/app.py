@@ -79,23 +79,8 @@ def build_model_comparison(metrics: dict[str, Any]) -> pd.DataFrame:
                 "MAE": metrics["validation_all_cycles"]["random_forest"]["mae"],
                 "Score NASA": metrics["validation_all_cycles"]["random_forest"]["nasa_score"],
             },
-            {
-                "Évaluation": "Dernier cycle par moteur",
-                "Modèle": "Ridge baseline",
-                "RMSE": metrics["validation_last_cycle"]["ridge_baseline"]["rmse"],
-                "MAE": metrics["validation_last_cycle"]["ridge_baseline"]["mae"],
-                "Score NASA": metrics["validation_last_cycle"]["ridge_baseline"]["nasa_score"],
-            },
-            {
-                "Évaluation": "Dernier cycle par moteur",
-                "Modèle": "Random Forest",
-                "RMSE": metrics["validation_last_cycle"]["random_forest"]["rmse"],
-                "MAE": metrics["validation_last_cycle"]["random_forest"]["mae"],
-                "Score NASA": metrics["validation_last_cycle"]["random_forest"]["nasa_score"],
-            },
         ]
     )
-
 
 def prepare_display_table(test_pred: pd.DataFrame) -> pd.DataFrame:
     df_display = test_pred[
@@ -425,7 +410,8 @@ st.markdown(
     """
 Le **Random Forest** est comparé à une **Ridge Regression**, utilisée comme baseline simple et interprétable.
 
-L'objectif est de vérifier que le modèle retenu apporte un gain mesurable par rapport à une approche plus simple.
+Sur la validation interne, le Random Forest améliore la RMSE et la MAE par rapport à la baseline.  
+Le score NASA reste cependant plus élevé, ce qui indique que certaines erreurs sont davantage pénalisées par la métrique asymétrique PHM'08.
 """
 )
 
