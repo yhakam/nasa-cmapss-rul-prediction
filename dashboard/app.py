@@ -18,15 +18,21 @@ PROCESSED_DIR = Path("data/processed")
 MODELS_DIR = Path("models")
 
 RISK_COLORS = {
-    "HIGH": "#E24B4A",
-    "MEDIUM": "#EF9F27",
-    "LOW": "#378ADD",
+    "Critique": "#E24B4A",
+    "À surveiller": "#EF9F27",
+    "Stable": "#378ADD",
 }
 
 RISK_LABELS = {
     "HIGH": "Critique",
-    "MEDIUM": "Moyen",
-    "LOW": "Faible",
+    "MEDIUM": "À surveiller",
+    "LOW": "Stable",
+}
+
+RISK_ORDER = {
+    "Critique": 0,
+    "À surveiller": 1,
+    "Stable": 2,
 }
 
 
@@ -37,7 +43,9 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         PROCESSED_DIR / "test_features.csv",
         MODELS_DIR / "metrics.json",
     ]
+
     missing_files = [str(path) for path in required_files if not path.exists()]
+
     if missing_files:
         st.error("Fichiers manquants. Lancez d'abord le pipeline de modélisation.")
         st.write(missing_files)
@@ -45,70 +53,96 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
 
     test_pred = pd.read_csv(PROCESSED_DIR / "test_predictions.csv")
     test_features = pd.read_csv(PROCESSED_DIR / "test_features.csv")
+
     with open(MODELS_DIR / "metrics.json", "r", encoding="utf-8") as f:
         metrics = json.load(f)
+
+    test_pred["risk_label"] = test_pred["risk_level"].map(RISK_LABELS)
+
     return test_pred, test_features, metrics
 
 
 def build_model_comparison(metrics: dict[str, Any]) -> pd.DataFrame:
-    return pd.DataFrame([
-        {
-            "Évaluation": "Tous les cycles — validation",
-            "Modèle": "Ridge baseline",
-            "RMSE": metrics["validation_all_cycles"]["ridge_baseline"]["rmse"],
-            "MAE": metrics["validation_all_cycles"]["ridge_baseline"]["mae"],
-            "Score NASA": metrics["validation_all_cycles"]["ridge_baseline"]["nasa_score"],
-        },
-        {
-            "Évaluation": "Tous les cycles — validation",
-            "Modèle": "Random Forest",
-            "RMSE": metrics["validation_all_cycles"]["random_forest"]["rmse"],
-            "MAE": metrics["validation_all_cycles"]["random_forest"]["mae"],
-            "Score NASA": metrics["validation_all_cycles"]["random_forest"]["nasa_score"],
-        },
-        {
-            "Évaluation": "Dernier cycle par moteur",
-            "Modèle": "Ridge baseline",
-            "RMSE": metrics["validation_last_cycle"]["ridge_baseline"]["rmse"],
-            "MAE": metrics["validation_last_cycle"]["ridge_baseline"]["mae"],
-            "Score NASA": metrics["validation_last_cycle"]["ridge_baseline"]["nasa_score"],
-        },
-        {
-            "Évaluation": "Dernier cycle par moteur",
-            "Modèle": "Random Forest",
-            "RMSE": metrics["validation_last_cycle"]["random_forest"]["rmse"],
-            "MAE": metrics["validation_last_cycle"]["random_forest"]["mae"],
-            "Score NASA": metrics["validation_last_cycle"]["random_forest"]["nasa_score"],
-        },
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "Évaluation": "Tous les cycles — validation",
+                "Modèle": "Ridge baseline",
+                "RMSE": metrics["validation_all_cycles"]["ridge_baseline"]["rmse"],
+                "MAE": metrics["validation_all_cycles"]["ridge_baseline"]["mae"],
+                "Score NASA": metrics["validation_all_cycles"]["ridge_baseline"]["nasa_score"],
+            },
+            {
+                "Évaluation": "Tous les cycles — validation",
+                "Modèle": "Random Forest",
+                "RMSE": metrics["validation_all_cycles"]["random_forest"]["rmse"],
+                "MAE": metrics["validation_all_cycles"]["random_forest"]["mae"],
+                "Score NASA": metrics["validation_all_cycles"]["random_forest"]["nasa_score"],
+            },
+            {
+                "Évaluation": "Dernier cycle par moteur",
+                "Modèle": "Ridge baseline",
+                "RMSE": metrics["validation_last_cycle"]["ridge_baseline"]["rmse"],
+                "MAE": metrics["validation_last_cycle"]["ridge_baseline"]["mae"],
+                "Score NASA": metrics["validation_last_cycle"]["ridge_baseline"]["nasa_score"],
+            },
+            {
+                "Évaluation": "Dernier cycle par moteur",
+                "Modèle": "Random Forest",
+                "RMSE": metrics["validation_last_cycle"]["random_forest"]["rmse"],
+                "MAE": metrics["validation_last_cycle"]["random_forest"]["mae"],
+                "Score NASA": metrics["validation_last_cycle"]["random_forest"]["nasa_score"],
+            },
+        ]
+    )
 
 
 def prepare_display_table(test_pred: pd.DataFrame) -> pd.DataFrame:
     df_display = test_pred[
-        ["unit_id", "last_cycle", "true_RUL", "predicted_RUL", "absolute_error", "risk_level"]
+        [
+            "unit_id",
+            "last_cycle",
+            "true_RUL",
+            "predicted_RUL",
+            "absolute_error",
+            "risk_label",
+        ]
     ].copy()
-    risk_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-    df_display["risk_order"] = df_display["risk_level"].map(risk_order)
+
+    df_display["risk_order"] = df_display["risk_label"].map(RISK_ORDER)
     df_display = df_display.sort_values(["risk_order", "predicted_RUL"])
-    df_display["risk_level"] = df_display["risk_level"].map(RISK_LABELS)
     df_display = df_display.drop(columns="risk_order")
+
     df_display.columns = [
-        "Moteur", "Dernier cycle observé", "RUL réel",
-        "RUL prédit", "Erreur absolue", "Risque",
+        "Moteur",
+        "Dernier cycle observé",
+        "RUL réel",
+        "RUL prédit",
+        "Erreur absolue",
+        "Risque",
     ]
+
     return df_display
 
 
 def get_sensor_cols(test_features: pd.DataFrame) -> list[str]:
     return [
-        col for col in test_features.columns
+        col
+        for col in test_features.columns
         if col.startswith("sensor_")
         and "rollmean" not in col
         and "delta" not in col
     ]
 
 
-# ── Chargement ────────────────────────────────────────────────────────────────
+def get_action_message(risk_label: str) -> str:
+    if risk_label == "Critique":
+        return "Maintenance prioritaire recommandée : le moteur présente un RUL prédit très faible."
+    if risk_label == "À surveiller":
+        return "Maintenance à planifier : le moteur n'est pas critique, mais doit être suivi de près."
+    return "Surveillance normale : le moteur ne présente pas de signal prioritaire selon le RUL prédit."
+
+
 test_pred, test_features, metrics = load_data()
 
 test_metrics = metrics["test_last_cycle"]["random_forest"]
@@ -116,89 +150,137 @@ rmse = test_metrics["rmse"]
 mae = test_metrics["mae"]
 nasa = test_metrics["nasa_score"]
 
-n_high = int((test_pred["risk_level"] == "HIGH").sum())
-n_medium = int((test_pred["risk_level"] == "MEDIUM").sum())
-n_low = int((test_pred["risk_level"] == "LOW").sum())
+n_critical = int((test_pred["risk_label"] == "Critique").sum())
+n_watch = int((test_pred["risk_label"] == "À surveiller").sum())
+n_stable = int((test_pred["risk_label"] == "Stable").sum())
 mean_predicted_rul = float(test_pred["predicted_RUL"].mean())
 
-# ── Header ────────────────────────────────────────────────────────────────────
+st.sidebar.title("Navigation")
+st.sidebar.markdown(
+    """
+**Projet :** Maintenance prédictive  
+**Dataset :** NASA CMAPSS FD001  
+**Modèle :** Random Forest  
+**Objectif :** prédire le RUL moteur
+"""
+)
+
+selected_risks = st.sidebar.multiselect(
+    "Filtrer par niveau de risque",
+    options=["Critique", "À surveiller", "Stable"],
+    default=["Critique", "À surveiller", "Stable"],
+)
+
+filtered_pred = test_pred[test_pred["risk_label"].isin(selected_risks)].copy()
+
 st.title("NASA CMAPSS — Tableau de bord de Maintenance Prédictive")
-st.markdown("""
-Ce dashboard transforme les prédictions de **durée de vie résiduelle (RUL)**
+
+st.markdown(
+    """
+Ce dashboard transforme les prédictions de **durée de vie résiduelle (RUL)** 
 en outil d'aide à la décision pour la maintenance industrielle.
 
 **Question métier principale : quels moteurs doivent être surveillés ou maintenus en priorité ?**
 
-Le modèle prédit le nombre de cycles restants avant panne à partir des signaux
-capteurs du dataset **NASA CMAPSS FD001** — un dataset de référence en maintenance
-prédictive, issu d'une compétition NASA/PHM'08 (*Saxena et al., 2008*).
-""")
+Le modèle prédit le nombre de cycles restants avant panne à partir des signaux 
+capteurs du dataset **NASA CMAPSS FD001**, un dataset de référence en maintenance 
+prédictive issu de la compétition NASA/PHM'08.
+"""
+)
 
 st.divider()
 
-# ── Section 1 ─────────────────────────────────────────────────────────────────
 st.header("1. Vue opérationnelle — Priorisation de maintenance")
-st.markdown("""
-Les 100 moteurs du dataset test sont classés selon leur **RUL prédit**.
-Un RUL faible indique qu'un moteur approche de sa limite opérationnelle
-et doit être maintenu en priorité.
-""")
+
+st.markdown(
+    """
+Les moteurs sont classés selon leur **RUL prédit**.  
+Plus le RUL prédit est faible, plus le moteur doit être traité en priorité.
+"""
+)
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric(
-    "Moteurs critiques", n_high,
-    help="RUL prédit ≤ 30 cycles — Maintenance immédiate requise"
-)
-col2.metric(
-    "Moteurs à surveiller", n_medium,
-    help="RUL prédit ≤ 60 cycles — Planifier la maintenance"
-)
-col3.metric(
-    "Moteurs stables", n_low,
-    help="RUL prédit > 60 cycles — Surveillance normale"
-)
-col4.metric("RUL moyen prédit", f"{mean_predicted_rul:.1f} cycles")
 
-st.markdown("""
-**Règle de décision :**
-- **Critique** : RUL prédit ≤ 30 cycles → maintenance immédiate requise
-- **Moyen** : RUL prédit ≤ 60 cycles → planifier la maintenance
-- **Faible** : RUL prédit > 60 cycles → surveillance normale
-""")
+col1.metric(
+    "Moteurs critiques",
+    n_critical,
+    help="RUL prédit ≤ 30 cycles — Maintenance prioritaire",
+)
+
+col2.metric(
+    "Moteurs à surveiller",
+    n_watch,
+    help="RUL prédit ≤ 60 cycles — Maintenance à planifier",
+)
+
+col3.metric(
+    "Moteurs stables",
+    n_stable,
+    help="RUL prédit > 60 cycles — Surveillance normale",
+)
+
+col4.metric(
+    "RUL moyen prédit",
+    f"{mean_predicted_rul:.1f} cycles",
+)
+
+st.info(
+    """
+**Règle de décision utilisée :**  
+Critique : RUL prédit ≤ 30 cycles · À surveiller : RUL prédit ≤ 60 cycles · Stable : RUL prédit > 60 cycles
+"""
+)
+
+priority_table = prepare_display_table(filtered_pred)
 
 st.subheader("Moteurs à prioriser")
-st.caption("Triés par niveau de risque puis par RUL prédit croissant.")
-df_display = prepare_display_table(test_pred)
-st.dataframe(df_display, use_container_width=True, hide_index=True)
+st.caption("Table triée par niveau de risque puis par RUL prédit croissant.")
+
+st.dataframe(priority_table, use_container_width=True, hide_index=True)
 
 st.divider()
 
-# ── Section 2 ─────────────────────────────────────────────────────────────────
 st.header("2. Analyse détaillée d'un moteur")
-st.markdown("""
-Sélectionnez un moteur pour visualiser son niveau de risque, son RUL prédit
-et l'évolution de ses capteurs au fil des cycles observés.
-Cette section permet de passer d'une vue globale à une analyse moteur par moteur.
 
-Le **RUL réel** est affiché ici car le dataset NASA fournit les valeurs de référence,
+st.markdown(
+    """
+Sélectionnez un moteur pour visualiser son RUL prédit, son niveau de risque 
+et l'évolution de ses capteurs au fil des cycles observés.
+
+Le **RUL réel** est affiché ici car le dataset NASA fournit les valeurs de référence, 
 ce qui permet d'évaluer objectivement la précision des prédictions.
-""")
+"""
+)
+
+available_units = sorted(filtered_pred["unit_id"].unique())
+
+if not available_units:
+    st.warning("Aucun moteur ne correspond au filtre sélectionné.")
+    st.stop()
 
 selected_unit = st.selectbox(
     "Sélectionner un moteur",
-    options=sorted(test_features["unit_id"].unique()),
+    options=available_units,
     format_func=lambda x: f"Moteur {x}",
 )
 
 unit_data = test_features[test_features["unit_id"] == selected_unit].copy()
 unit_pred = test_pred[test_pred["unit_id"] == selected_unit].iloc[0]
-unit_risk_label = RISK_LABELS.get(unit_pred["risk_level"], unit_pred["risk_level"])
+unit_risk_label = unit_pred["risk_label"]
 
 col_a, col_b, col_c, col_d = st.columns(4)
+
 col_a.metric("RUL prédit", f"{unit_pred['predicted_RUL']:.0f} cycles")
 col_b.metric("RUL réel", f"{unit_pred['true_RUL']:.0f} cycles")
 col_c.metric("Erreur", f"{unit_pred['absolute_error']:.0f} cycles")
 col_d.metric("Niveau de risque", unit_risk_label)
+
+if unit_risk_label == "Critique":
+    st.error(get_action_message(unit_risk_label))
+elif unit_risk_label == "À surveiller":
+    st.warning(get_action_message(unit_risk_label))
+else:
+    st.success(get_action_message(unit_risk_label))
 
 sensor_cols = get_sensor_cols(test_features)
 
@@ -211,23 +293,28 @@ selected_sensor = st.selectbox(
 rollmean_col = f"{selected_sensor}_rollmean_5"
 
 fig_sensor = go.Figure()
-fig_sensor.add_trace(go.Scatter(
-    x=unit_data["cycle"],
-    y=unit_data[selected_sensor],
-    mode="lines",
-    name="Signal brut",
-    line=dict(color="#888780", width=1),
-    opacity=0.5,
-))
+
+fig_sensor.add_trace(
+    go.Scatter(
+        x=unit_data["cycle"],
+        y=unit_data[selected_sensor],
+        mode="lines",
+        name="Signal brut",
+        line=dict(color="#888780", width=1),
+        opacity=0.5,
+    )
+)
 
 if rollmean_col in unit_data.columns:
-    fig_sensor.add_trace(go.Scatter(
-        x=unit_data["cycle"],
-        y=unit_data[rollmean_col],
-        mode="lines",
-        name="Moyenne glissante (5 cycles)",
-        line=dict(color="#378ADD", width=2),
-    ))
+    fig_sensor.add_trace(
+        go.Scatter(
+            x=unit_data["cycle"],
+            y=unit_data[rollmean_col],
+            mode="lines",
+            name="Moyenne glissante (5 cycles)",
+            line=dict(color="#378ADD", width=2),
+        )
+    )
 
 fig_sensor.update_layout(
     title=f"Évolution de {selected_sensor} — Moteur {selected_unit}",
@@ -235,46 +322,51 @@ fig_sensor.update_layout(
     yaxis_title="Valeur du capteur",
     legend=dict(orientation="h"),
 )
-st.plotly_chart(fig_sensor, use_container_width=True)
-st.caption("""
-Le signal brut (gris) montre les mesures cycle par cycle.
-La moyenne glissante sur 5 cycles (bleu) lisse les fluctuations locales
-pour rendre la tendance de dégradation plus lisible.
 
-Note : les données test sont intentionnellement tronquées avant la panne —
-le nombre de cycles observés est donc limité par construction du dataset
-(Saxena et al., 2008 — Section VI).
-""")
+st.plotly_chart(fig_sensor, use_container_width=True)
+
+st.caption(
+    """
+Le signal brut montre les mesures cycle par cycle. 
+La moyenne glissante sur 5 cycles lisse les fluctuations locales pour rendre la tendance plus lisible.
+
+Les données test sont volontairement tronquées avant la panne : le nombre de cycles observés est donc limité par construction du dataset.
+"""
+)
 
 st.divider()
 
-# ── Section 3 ─────────────────────────────────────────────────────────────────
 st.header("3. Performance du modèle — Peut-on faire confiance aux prédictions ?")
-st.markdown("""
-Le modèle est évalué sur les 100 moteurs test du dataset NASA CMAPSS FD001.
-L'évaluation porte sur le **dernier cycle observé** de chaque moteur :
-c'est le scénario opérationnel dans lequel on prédit le RUL à partir du dernier état connu.
 
-Le **RUL réel** est disponible dans le dataset de référence, ce qui permet de mesurer
-l'erreur de prédiction. Dans un cas industriel réel, cette valeur ne serait connue
-qu'après la fin de vie du moteur.
+st.markdown(
+    """
+Le modèle est évalué sur les 100 moteurs test du dataset NASA CMAPSS FD001.  
+L'évaluation porte sur le **dernier cycle observé** de chaque moteur : c'est le scénario opérationnel 
+dans lequel on prédit le RUL à partir du dernier état connu.
 
-La diagonale pointillée représente une prédiction parfaite.
-Plus les points s'en rapprochent, meilleure est la prédiction.
-""")
+Dans un cas industriel réel, le RUL réel ne serait connu qu'après la fin de vie du moteur. 
+Ici, il est disponible car le dataset NASA fournit les valeurs de référence.
+"""
+)
 
 col_m1, col_m2, col_m3 = st.columns(3)
+
 col_m1.metric(
-    "RMSE", f"{rmse:.1f} cycles",
-    help="Erreur quadratique moyenne. Plus elle est faible, meilleure est la prédiction."
+    "RMSE",
+    f"{rmse:.1f} cycles",
+    help="Erreur quadratique moyenne. Plus elle est faible, meilleure est la prédiction.",
 )
+
 col_m2.metric(
-    "MAE", f"{mae:.1f} cycles",
-    help="Erreur absolue moyenne en cycles."
+    "MAE",
+    f"{mae:.1f} cycles",
+    help="Erreur absolue moyenne en cycles.",
 )
+
 col_m3.metric(
-    "Score NASA", f"{nasa:.0f}",
-    help="Score asymétrique PHM'08 — pénalise davantage les prédictions tardives que les prédictions précoces."
+    "Score NASA",
+    f"{nasa:.0f}",
+    help="Score asymétrique PHM'08 : les erreurs dangereuses sont davantage pénalisées.",
 )
 
 col_left, col_right = st.columns(2)
@@ -284,22 +376,36 @@ with col_left:
         test_pred,
         x="true_RUL",
         y="predicted_RUL",
-        color="risk_level",
+        color="risk_label",
         color_discrete_map=RISK_COLORS,
-        hover_data={"unit_id": True, "absolute_error": True, "risk_level": True},
+        hover_data={
+            "unit_id": True,
+            "absolute_error": True,
+            "risk_label": True,
+        },
         title="RUL prédit vs RUL réel",
         labels={
             "true_RUL": "RUL réel",
             "predicted_RUL": "RUL prédit",
-            "risk_level": "Risque",
+            "risk_label": "Risque",
             "absolute_error": "Erreur absolue",
         },
     )
-    max_rul = max(float(test_pred["true_RUL"].max()), float(test_pred["predicted_RUL"].max()))
+
+    max_rul = max(
+        float(test_pred["true_RUL"].max()),
+        float(test_pred["predicted_RUL"].max()),
+    )
+
     fig_scatter.add_shape(
-        type="line", x0=0, y0=0, x1=max_rul, y1=max_rul,
+        type="line",
+        x0=0,
+        y0=0,
+        x1=max_rul,
+        y1=max_rul,
         line=dict(color="gray", dash="dash"),
     )
+
     st.plotly_chart(fig_scatter, use_container_width=True)
 
 with col_right:
@@ -307,29 +413,34 @@ with col_right:
         test_pred,
         x="absolute_error",
         nbins=30,
-        color="risk_level",
+        color="risk_label",
         color_discrete_map=RISK_COLORS,
         title="Distribution des erreurs absolues",
-        labels={"absolute_error": "Erreur absolue (cycles)", "risk_level": "Risque"},
+        labels={
+            "absolute_error": "Erreur absolue (cycles)",
+            "risk_label": "Risque",
+        },
     )
+
     st.plotly_chart(fig_error, use_container_width=True)
 
 st.divider()
 
-# ── Section 4 ─────────────────────────────────────────────────────────────────
 st.header("4. Comparaison avec une baseline")
-st.markdown("""
-Pour valider que le modèle principal apporte une vraie valeur, il est comparé
-à une **Ridge Regression** — une baseline simple et interprétable.
+
+st.markdown(
+    """
+Pour vérifier que le modèle principal apporte une vraie valeur, le **Random Forest** 
+est comparé à une **Ridge Regression**, utilisée comme baseline simple et interprétable.
 
 L'évaluation est faite sur deux niveaux :
-- **Tous les cycles** : le modèle prédit le RUL à chaque cycle de chaque moteur
-- **Dernier cycle par moteur** : le scénario opérationnel principal
-
-Un bon modèle doit apporter un gain mesurable par rapport à la baseline sur ces deux niveaux.
-""")
+- **Tous les cycles** : prédiction du RUL à chaque cycle de chaque moteur.
+- **Dernier cycle par moteur** : scénario opérationnel principal.
+"""
+)
 
 comparison_df = build_model_comparison(metrics)
+
 st.dataframe(comparison_df, use_container_width=True, hide_index=True)
 
 fig_comparison = px.bar(
@@ -345,23 +456,24 @@ fig_comparison = px.bar(
     title="Comparaison RMSE — Ridge baseline vs Random Forest",
     labels={"RMSE": "RMSE (cycles)"},
 )
+
 st.plotly_chart(fig_comparison, use_container_width=True)
 
 st.divider()
 
-# ── Résumé ────────────────────────────────────────────────────────────────────
-st.markdown(f"""
+st.markdown(
+    f"""
 ### Résumé
 
 Ce dashboard répond à trois questions :
 
-1. **Quels moteurs sont prioritaires pour la maintenance ?**
-   → Voir la vue opérationnelle et la table de priorisation.
+1. **Quels moteurs sont prioritaires pour la maintenance ?**  
+   → Vue opérationnelle, filtres de risque et table de priorisation.
 
-2. **Quel est l'état détaillé d'un moteur donné ?**
-   → Voir l'analyse individuelle avec les courbes capteurs.
+2. **Quel est l'état détaillé d'un moteur donné ?**  
+   → Analyse individuelle avec RUL prédit, niveau de risque et courbes capteurs.
 
-3. **Quelle est la fiabilité du modèle de prédiction RUL ?**
-   → RMSE de **{rmse:.1f} cycles** sur le test set NASA CMAPSS FD001,
-   pour une première approche Random Forest sans optimisation avancée.
-""")
+3. **Quelle est la fiabilité du modèle de prédiction RUL ?**  
+   → RMSE de **{rmse:.1f} cycles** sur le test set NASA CMAPSS FD001, pour une première approche Random Forest sans optimisation avancée.
+"""
+)
