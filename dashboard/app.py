@@ -36,6 +36,53 @@ RISK_ORDER = {
 }
 
 
+st.markdown(
+    """
+<style>
+.main-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin-bottom: 0.3rem;
+}
+.subtitle {
+    font-size: 1.05rem;
+    color: #555;
+    margin-bottom: 1.5rem;
+}
+.kpi-card {
+    padding: 1.1rem;
+    border-radius: 14px;
+    border: 1px solid #E6E6E6;
+    background-color: #FAFAFA;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.kpi-label {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.4rem;
+}
+.kpi-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #222;
+}
+.recommendation-box {
+    padding: 1rem 1.2rem;
+    border-radius: 14px;
+    background-color: #FFF7E6;
+    border-left: 6px solid #EF9F27;
+    margin: 1rem 0 1.5rem 0;
+}
+.section-note {
+    color: #555;
+    font-size: 0.98rem;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
 @st.cache_data
 def load_data() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     required_files = [
@@ -125,6 +172,19 @@ def prepare_display_table(test_pred: pd.DataFrame) -> pd.DataFrame:
     return df_display
 
 
+def style_priority_table(df: pd.DataFrame):
+    def color_risk(value: str) -> str:
+        if value == "Critique":
+            return "background-color: #FDECEC; color: #B42318; font-weight: 700"
+        if value == "À surveiller":
+            return "background-color: #FFF4E5; color: #B54708; font-weight: 700"
+        if value == "Stable":
+            return "background-color: #EEF6FF; color: #175CD3; font-weight: 700"
+        return ""
+
+    return df.style.map(color_risk, subset=["Risque"])
+
+
 def get_sensor_cols(test_features: pd.DataFrame) -> list[str]:
     return [
         col
@@ -157,6 +217,18 @@ def build_risk_summary(test_pred: pd.DataFrame) -> pd.DataFrame:
     return risk_summary
 
 
+def render_kpi(label: str, value: str) -> None:
+    st.markdown(
+        f"""
+<div class="kpi-card">
+    <div class="kpi-label">{label}</div>
+    <div class="kpi-value">{value}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
 test_pred, test_features, metrics = load_data()
 
 test_metrics = metrics["test_last_cycle"]["random_forest"]
@@ -169,15 +241,36 @@ n_watch = int((test_pred["risk_label"] == "À surveiller").sum())
 n_stable = int((test_pred["risk_label"] == "Stable").sum())
 mean_predicted_rul = float(test_pred["predicted_RUL"].mean())
 
-st.title("NASA CMAPSS — Tableau de bord de Maintenance Prédictive")
+priority_table = prepare_display_table(test_pred)
+risk_summary = build_risk_summary(test_pred)
 
 st.markdown(
     """
-Ce dashboard transforme les prédictions de **durée de vie résiduelle (RUL)** en outil d'aide à la décision pour la maintenance industrielle.
+<div class="main-title">NASA CMAPSS — Maintenance Prédictive</div>
+<div class="subtitle">
+Prédiction de la durée de vie résiduelle des moteurs et priorisation opérationnelle de maintenance.
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
-**Question métier : quels moteurs doivent être surveillés ou maintenus en priorité ?**
+if n_critical > 0:
+    st.markdown(
+        f"""
+<div class="recommendation-box">
+    <b>Recommandation immédiate :</b> {n_critical} moteur(s) critique(s) détecté(s). 
+    La maintenance doit être priorisée sur les moteurs ayant le RUL prédit le plus faible.
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+else:
+    st.success("Aucun moteur critique détecté selon les seuils de RUL définis.")
 
-Le modèle prédit le nombre de cycles restants avant panne à partir des signaux capteurs du dataset **NASA CMAPSS FD001**, issu de la compétition NASA/PHM'08.
+st.markdown(
+    """
+**Question métier :** quels moteurs doivent être surveillés ou maintenus en priorité ?  
+Le modèle exploite les signaux capteurs du dataset **NASA CMAPSS FD001** pour prédire le nombre de cycles restants avant panne.
 """
 )
 
@@ -185,43 +278,23 @@ st.divider()
 
 st.header("1. Vue opérationnelle — Priorisation de maintenance")
 
-st.markdown(
-    """
-Les moteurs sont classés selon leur **RUL prédit**.  
-Plus le RUL prédit est faible, plus le moteur doit être traité en priorité.
-"""
-)
-
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric(
-    "Moteurs critiques",
-    n_critical,
-    help="RUL prédit ≤ 30 cycles — Maintenance prioritaire",
-)
+with col1:
+    render_kpi("Moteurs critiques", str(n_critical))
 
-col2.metric(
-    "Moteurs à surveiller",
-    n_watch,
-    help="RUL prédit ≤ 60 cycles — Maintenance à planifier",
-)
+with col2:
+    render_kpi("Moteurs à surveiller", str(n_watch))
 
-col3.metric(
-    "Moteurs stables",
-    n_stable,
-    help="RUL prédit > 60 cycles — Surveillance normale",
-)
+with col3:
+    render_kpi("Moteurs stables", str(n_stable))
 
-col4.metric(
-    "RUL moyen prédit",
-    f"{mean_predicted_rul:.1f} cycles",
-)
+with col4:
+    render_kpi("RUL moyen prédit", f"{mean_predicted_rul:.1f}")
 
 st.info(
     "**Règle de décision :** Critique ≤ 30 cycles · À surveiller ≤ 60 cycles · Stable > 60 cycles"
 )
-
-risk_summary = build_risk_summary(test_pred)
 
 fig_risk = px.bar(
     risk_summary,
@@ -233,17 +306,19 @@ fig_risk = px.bar(
     text="Nombre de moteurs",
 )
 
-fig_risk.update_layout(showlegend=False)
+fig_risk.update_layout(showlegend=False, yaxis_title="Nombre de moteurs")
 fig_risk.update_traces(textposition="outside")
 
 st.plotly_chart(fig_risk, use_container_width=True)
 
-priority_table = prepare_display_table(test_pred)
-
 st.subheader("Moteurs à prioriser")
-st.caption("Table triée par niveau de risque puis par RUL prédit croissant.")
+st.caption("Tri par niveau de risque puis par RUL prédit croissant. Les moteurs les plus urgents apparaissent en haut.")
 
-st.dataframe(priority_table, use_container_width=True, hide_index=True)
+st.dataframe(
+    style_priority_table(priority_table),
+    use_container_width=True,
+    hide_index=True,
+)
 
 st.divider()
 
@@ -251,9 +326,8 @@ st.header("2. Analyse détaillée d'un moteur")
 
 st.markdown(
     """
-Sélectionnez un moteur pour visualiser son RUL prédit, son niveau de risque et l'évolution de ses capteurs.
-
-Le **RUL réel** est affiché car le dataset NASA fournit les valeurs de référence, ce qui permet d'évaluer les prédictions.
+Sélectionnez un moteur pour visualiser son RUL prédit, son niveau de risque et l'évolution de ses capteurs.  
+Le **RUL réel** est affiché car le dataset NASA fournit les valeurs de référence pour évaluer les prédictions.
 """
 )
 
@@ -325,10 +399,7 @@ fig_sensor.update_layout(
 st.plotly_chart(fig_sensor, use_container_width=True)
 
 st.caption(
-    """
-Le signal brut montre les mesures cycle par cycle. 
-La moyenne glissante sur 5 cycles lisse les fluctuations locales pour rendre la tendance plus lisible.
-"""
+    "La moyenne glissante sur 5 cycles lisse les fluctuations locales pour rendre la tendance de dégradation plus lisible."
 )
 
 st.divider()
@@ -337,8 +408,7 @@ st.header("3. Performance du modèle — Fiabilité des prédictions")
 
 st.markdown(
     """
-Le modèle est évalué sur les 100 moteurs test.  
-L'évaluation porte sur le **dernier cycle observé** de chaque moteur : c'est le scénario opérationnel principal.
+Le modèle est évalué sur le **dernier cycle observé** de chaque moteur test, ce qui correspond au scénario opérationnel principal : prédire le RUL à partir du dernier état connu.
 """
 )
 
@@ -423,8 +493,7 @@ st.header("4. Comparaison avec une baseline")
 
 st.markdown(
     """
-Le **Random Forest** est comparé à une **Ridge Regression**, utilisée comme baseline simple et interprétable.
-
+Le **Random Forest** est comparé à une **Ridge Regression**, utilisée comme baseline simple et interprétable.  
 L'objectif est de vérifier que le modèle retenu apporte un gain mesurable par rapport à une approche plus simple.
 """
 )
@@ -455,15 +524,12 @@ st.markdown(
     f"""
 ### Résumé
 
-Ce dashboard répond à trois questions :
+Ce dashboard transforme une prédiction ML en outil de décision opérationnelle :
 
-1. **Quels moteurs sont prioritaires pour la maintenance ?**  
-   → Vue opérationnelle, graphique des risques et table de priorisation.
+1. **Priorisation maintenance** : moteurs critiques, à surveiller et stables.  
+2. **Analyse moteur** : RUL prédit, erreur, risque et évolution capteurs.  
+3. **Validation ML** : RMSE de **{rmse:.1f} cycles**, MAE, score NASA et comparaison à une baseline Ridge.
 
-2. **Quel est l'état détaillé d'un moteur donné ?**  
-   → Analyse individuelle avec RUL prédit, niveau de risque et courbes capteurs.
-
-3. **Quelle est la fiabilité du modèle de prédiction RUL ?**  
-   → RMSE de **{rmse:.1f} cycles** sur le test set NASA CMAPSS FD001, pour une première approche Random Forest sans optimisation avancée.
+Chaîne projet couverte : ingestion → preprocessing → feature engineering → modélisation → scoring → visualisation métier.
 """
 )
