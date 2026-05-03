@@ -9,7 +9,7 @@ import streamlit as st
 
 
 st.set_page_config(
-    page_title="NASA CMAPSS — Predictive Maintenance",
+    page_title="NASA CMAPSS — Maintenance Prédictive",
     page_icon="⚙️",
     layout="wide",
 )
@@ -126,7 +126,7 @@ n_medium = int((test_pred["risk_level"] == "MEDIUM").sum())
 n_low = int((test_pred["risk_level"] == "LOW").sum())
 mean_predicted_rul = float(test_pred["predicted_RUL"].mean())
 
-st.title("⚙️ NASA CMAPSS — Predictive Maintenance Dashboard")
+st.title("NASA CMAPSS — Tableau de bord de Maintenance Prédictive")
 
 st.markdown(
     """
