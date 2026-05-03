@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import joblib
 import numpy as np
@@ -38,19 +39,25 @@ def split_by_unit(df: pd.DataFrame, val_size: int = VAL_SIZE) -> tuple[pd.DataFr
 
     return train_df, val_df
 
-#Message à moi même : Review à partir d'ici
+#Review ici 
 
 def get_last_cycle_per_unit(df: pd.DataFrame) -> pd.DataFrame:
     return df.sort_values(["unit_id", "cycle"]).groupby("unit_id", as_index=False).tail(1)
 
 
-def nasa_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+def nasa_score(y_true: Any, y_pred: Any) -> float:
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+
     errors = y_pred - y_true
     score = np.where(errors < 0, np.exp(-errors / 13) - 1, np.exp(errors / 10) - 1)
+
     return float(np.sum(score))
 
 
-def evaluate(y_true: np.ndarray, y_pred: np.ndarray, label: str) -> dict[str, float]:
+def evaluate(y_true: Any, y_pred: Any, label: str) -> dict[str, float]:
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
     y_pred = np.maximum(y_pred, 0)
 
     rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
@@ -69,10 +76,7 @@ def evaluate(y_true: np.ndarray, y_pred: np.ndarray, label: str) -> dict[str, fl
     }
 
 
-def train_baseline(
-    X_train: pd.DataFrame,
-    y_train: pd.Series,
-) -> tuple[Ridge, StandardScaler]:
+def train_baseline(X_train: pd.DataFrame, y_train: pd.Series) -> tuple[Ridge, StandardScaler]:
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
 
@@ -82,10 +86,7 @@ def train_baseline(
     return model, scaler
 
 
-def train_random_forest(
-    X_train: pd.DataFrame,
-    y_train: pd.Series,
-) -> RandomForestRegressor:
+def train_random_forest(X_train: pd.DataFrame, y_train: pd.Series) -> RandomForestRegressor:
     model = RandomForestRegressor(
         n_estimators=100,
         random_state=RANDOM_STATE,
@@ -112,16 +113,16 @@ def add_risk_level(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_prediction_dataframe(
-    df: pd.DataFrame,
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-) -> pd.DataFrame:
+def build_prediction_dataframe(df: pd.DataFrame, y_true: Any, y_pred: Any) -> pd.DataFrame:
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    y_pred = np.maximum(y_pred, 0)
+
     predictions = pd.DataFrame({
-        "unit_id": df["unit_id"].values,
-        "last_cycle": df["cycle"].values,
+        "unit_id": df["unit_id"].to_numpy(),
+        "last_cycle": df["cycle"].to_numpy(),
         "true_RUL": y_true,
-        "predicted_RUL": np.maximum(y_pred, 0),
+        "predicted_RUL": y_pred,
     })
 
     predictions["absolute_error"] = (predictions["true_RUL"] - predictions["predicted_RUL"]).abs()
@@ -183,16 +184,16 @@ if __name__ == "__main__":
 
     metrics = {
         "validation_all_cycles": {
-            "ridge_baseline": evaluate(y_val.values, baseline_val_preds, "Ridge Baseline — Validation all cycles"),
-            "random_forest": evaluate(y_val.values, rf_val_preds, "Random Forest — Validation all cycles"),
+            "ridge_baseline": evaluate(y_val, baseline_val_preds, "Ridge Baseline — Validation all cycles"),
+            "random_forest": evaluate(y_val, rf_val_preds, "Random Forest — Validation all cycles"),
         },
         "validation_last_cycle": {
-            "ridge_baseline": evaluate(y_val_last.values, baseline_last_preds, "Ridge Baseline — Validation last cycle"),
-            "random_forest": evaluate(y_val_last.values, rf_last_preds, "Random Forest — Validation last cycle"),
+            "ridge_baseline": evaluate(y_val_last, baseline_last_preds, "Ridge Baseline — Validation last cycle"),
+            "random_forest": evaluate(y_val_last, rf_last_preds, "Random Forest — Validation last cycle"),
         },
     }
 
-    val_predictions = build_prediction_dataframe(val_last, y_val_last.values, rf_last_preds)
+    val_predictions = build_prediction_dataframe(val_last, y_val_last, rf_last_preds)
     val_predictions.to_csv(PROCESSED_DIR / "validation_predictions.csv", index=False)
 
     X_full = train[feature_cols]
@@ -204,13 +205,13 @@ if __name__ == "__main__":
     X_test_last = test_last[feature_cols]
     test_preds = final_rf_model.predict(X_test_last)
 
-    test_predictions = build_prediction_dataframe(test_last, rul_test.values, test_preds)
+    test_predictions = build_prediction_dataframe(test_last, rul_test, test_preds)
     test_predictions.to_csv(PROCESSED_DIR / "test_predictions.csv", index=False)
 
     metrics["test_last_cycle"] = {
         "random_forest": evaluate(
-            test_predictions["true_RUL"].values,
-            test_predictions["predicted_RUL"].values,
+            test_predictions["true_RUL"],
+            test_predictions["predicted_RUL"],
             "Random Forest — NASA test last cycle",
         )
     }
