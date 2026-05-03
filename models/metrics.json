@@ -1,0 +1,33 @@
+{
+  "validation_all_cycles": {
+    "ridge_baseline": {
+      "rmse": 24.73,
+      "mae": 19.39,
+      "nasa_score": 58702.96
+    },
+    "random_forest": {
+      "rmse": 21.6,
+      "mae": 15.98,
+      "nasa_score": 91895.86
+    }
+  },
+  "validation_last_cycle": {
+    "ridge_baseline": {
+      "rmse": 4.67,
+      "mae": 1.81,
+      "nasa_score": 7.47
+    },
+    "random_forest": {
+      "rmse": 2.6,
+      "mae": 2.23,
+      "nasa_score": 5.22
+    }
+  },
+  "test_last_cycle": {
+    "random_forest": {
+      "rmse": 23.16,
+      "mae": 16.72,
+      "nasa_score": 5331.9
+    }
+  }
+}
