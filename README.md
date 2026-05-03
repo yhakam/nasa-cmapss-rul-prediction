@@ -19,7 +19,23 @@ Le projet couvre toute la chaîne Data Science : ingestion, exploration, preproc
 
 **Dashboard live** → [nasa-cmapss-rul-prediction.streamlit.app](https://nasa-cmapss-rul-prediction.streamlit.app/)
 
-> Captures à ajouter : vue opérationnelle, analyse moteur, performance modèle.
+### Vue opérationnelle
+
+La vue opérationnelle synthétise les moteurs critiques, les moteurs à surveiller et les moteurs stables afin de prioriser les actions de maintenance.
+
+![Vue opérationnelle](nasa-cmapss-rul-prediction/assets/dashboard_overview.png)
+
+### Table de priorisation
+
+Les moteurs sont triés par niveau de risque puis par RUL prédit croissant. Les moteurs les plus urgents apparaissent en haut de la table.
+
+![Table de priorisation](nasa-cmapss-rul-prediction/assets/priority_table.png)
+
+### Analyse détaillée d'un moteur
+
+Cette vue permet d'analyser un moteur spécifique : RUL prédit, RUL réel, erreur de prédiction, niveau de risque et évolution d'un capteur au fil des cycles.
+
+![Analyse moteur](nasa-cmapss-rul-prediction/assets/engine_analysis.png)
 
 ---
 
