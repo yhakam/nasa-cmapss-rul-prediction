@@ -216,12 +216,6 @@ Critique : RUL prédit ≤ 30 cycles · À surveiller : RUL prédit ≤ 60 cycle
 """
 )
 
-selected_risks = st.multiselect(
-    "Filtrer les moteurs par niveau de risque",
-    options=["Critique", "À surveiller", "Stable"],
-    default=["Critique", "À surveiller", "Stable"],
-)
-
 priority_table = prepare_display_table(filtered_pred)
 
 st.subheader("Moteurs à prioriser")
