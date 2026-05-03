@@ -237,19 +237,43 @@ Cette étape est essentielle : si les cycles d'un même moteur étaient réparti
 
 Le modèle est évalué à l'aide de métriques de régression classiques ainsi que d'une métrique spécifique à la maintenance prédictive.
 
+L'objectif n'est pas seulement de mesurer l'erreur moyenne du modèle, mais aussi de comprendre la criticité métier des erreurs : dans un contexte industriel, surestimer la durée de vie restante d'un moteur peut être plus risqué que la sous-estimer.
+
+---
+
 ### MAE — Mean Absolute Error
 
 La MAE mesure l'écart absolu moyen entre le RUL prédit et le RUL réel.
 
-Elle est facilement interprétable car elle est exprimée directement en nombre de cycles :
+$$
+MAE = \frac{1}{n} \sum_{i=1}^{n} \left| RUL_i - \widehat{RUL}_i \right|
+$$
+
+où :
+
+- $RUL_i$ correspond au RUL réel ;
+- $\widehat{RUL}_i$ correspond au RUL prédit ;
+- $n$ correspond au nombre d'observations.
+
+Cette métrique est facilement interprétable car elle est exprimée directement en nombre de cycles :
 
 > En moyenne, le modèle se trompe de X cycles.
 
 ### RMSE — Root Mean Squared Error
 
-La RMSE mesure l'erreur moyenne du modèle en donnant plus de poids aux grandes erreurs.
+La RMSE correspond à la racine carrée de la MSE.
 
-Cette métrique est utile dans un contexte de maintenance prédictive, car les grandes erreurs de prédiction peuvent avoir un impact opérationnel important.
+$$
+RMSE = \sqrt{ \frac{1}{n} \sum_{i=1}^{n} \left( RUL_i - \widehat{RUL}_i \right)^2 }
+$$
+
+Elle mesure l'erreur moyenne du modèle en donnant plus de poids aux grandes erreurs.
+
+Contrairement à la MSE, la RMSE est exprimée dans la même unité que la cible, c'est-à-dire en nombre de cycles. Elle est donc plus facile à interpréter dans un contexte de maintenance prédictive.
+
+> Une RMSE de 23.16 signifie que l'erreur typique du modèle est d'environ 23 cycles.
+
+---
 
 ### NASA Score / PHM08 Score
 
@@ -286,9 +310,9 @@ où :
 - $d_i \geq 0$ signifie que le modèle surestime le RUL.
 
 Le NASA Score n'est pas borné et ne s'interprète pas comme un pourcentage ou une note sur 100.  
-**Plus le score est faible, meilleur est le modèle. Un score de 0 correspondrait à des prédictions parfaites.**
+Plus le score est faible, meilleur est le modèle. Un score de 0 correspondrait à des prédictions parfaites.
 
-Pour donner un ordre de grandeur : un score de 5 332 sur 100 moteurs correspond à une pénalité asymétrique moyenne d'environ 53 points par moteur — ce qui reflète des erreurs modérées, davantage pénalisées lorsqu'elles surestiment le RUL restant.
+Pour donner un ordre de grandeur, un score de 5 331.90 sur 100 moteurs correspond à une pénalité asymétrique moyenne d'environ 53.3 points par moteur. Cette valeur doit surtout être interprétée par comparaison avec d'autres modèles ou baselines.
 
 En pratique, cette métrique permet d'évaluer non seulement la précision statistique du modèle, mais aussi la criticité métier des erreurs de prédiction.
 
