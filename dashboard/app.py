@@ -155,18 +155,8 @@ n_watch = int((test_pred["risk_label"] == "À surveiller").sum())
 n_stable = int((test_pred["risk_label"] == "Stable").sum())
 mean_predicted_rul = float(test_pred["predicted_RUL"].mean())
 
-st.sidebar.title("Navigation")
-st.sidebar.markdown(
-    """
-**Projet :** Maintenance prédictive  
-**Dataset :** NASA CMAPSS FD001  
-**Modèle :** Random Forest  
-**Objectif :** prédire le RUL moteur
-"""
-)
-
-selected_risks = st.sidebar.multiselect(
-    "Filtrer par niveau de risque",
+selected_risks = st.multiselect(
+    "Filtrer les moteurs par niveau de risque",
     options=["Critique", "À surveiller", "Stable"],
     default=["Critique", "À surveiller", "Stable"],
 )
