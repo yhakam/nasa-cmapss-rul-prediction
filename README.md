@@ -235,33 +235,59 @@ Cette étape est essentielle : si les cycles d'un même moteur étaient réparti
 
 ## Métriques d'évaluation
 
-Trois métriques complémentaires sont utilisées pour évaluer le modèle.
+Le modèle est évalué à l'aide de métriques de régression classiques ainsi que d'une métrique spécifique à la maintenance prédictive.
 
-### RMSE — Racine de l'erreur quadratique moyenne
+### MAE — Mean Absolute Error
 
-Le RMSE mesure l'écart moyen entre le RUL prédit et le RUL réel, exprimé en **nombre de cycles**.  
-Un RMSE de 23 cycles signifie que le modèle se trompe en moyenne de 23 cycles sur sa prédiction.  
-**Plus le RMSE est faible, meilleure est la prédiction.**  
-Il pénalise davantage les grandes erreurs que les petites.
+La MAE mesure l'écart absolu moyen entre le RUL prédit et le RUL réel.
 
-### MAE — Erreur absolue moyenne
+Elle est facilement interprétable car elle est exprimée directement en nombre de cycles :
 
-Le MAE mesure également l'écart moyen entre prédit et réel, mais sans pénaliser les grandes erreurs.  
-Un MAE de 16 cycles signifie que la moitié des prédictions sont à moins de 16 cycles du RUL réel.  
-**Plus le MAE est faible, meilleure est la prédiction.**
+> En moyenne, le modèle se trompe de X cycles.
 
-### Score NASA/PHM'08 — Score asymétrique
+### RMSE — Root Mean Squared Error
 
-Ce score a été défini par la NASA pour la compétition PHM'08.  
-Il introduit une **asymétrie** dans la pénalisation des erreurs :
+La RMSE mesure l'erreur moyenne du modèle en donnant plus de poids aux grandes erreurs.
 
-- Prédire un RUL **trop optimiste** (le moteur est proche de la panne mais le modèle dit qu'il tient encore longtemps) est **fortement pénalisé** — c'est la situation la plus dangereuse.
-- Prédire un RUL **trop pessimiste** (le modèle dit que le moteur va tomber en panne alors qu'il tient encore) est pénalisé mais moins sévèrement — c'est simplement du gaspillage de maintenance.
+Cette métrique est utile dans un contexte de maintenance prédictive, car les grandes erreurs de prédiction peuvent avoir un impact opérationnel important.
 
-**Plus le score NASA est faible, meilleur est le modèle.**  
-Un score de 5 331 sur le test set indique que les erreurs dangereuses restent limitées.
+### NASA Score / PHM08 Score
 
-> Saxena et al. (2008), p.7 — Section VII — [PDF](docs/Damage_Propagation_Modeling.pdf)
+Le NASA Score, aussi appelé PHM08 Score, est une métrique spécifique à la prédiction du Remaining Useful Life.
+
+Contrairement à la MAE ou à la RMSE, il applique une pénalité asymétrique : les surestimations du RUL sont davantage pénalisées que les sous-estimations.
+
+Cette logique est particulièrement adaptée à la maintenance prédictive :
+
+- sous-estimer le RUL conduit à une maintenance anticipée ;
+- surestimer le RUL peut conduire à une panne non anticipée.
+
+Le score est défini par la formule suivante :
+
+$$
+s = \sum_{i=1}^{n}
+\begin{cases}
+\exp\left(-\frac{d_i}{13}\right) - 1, & \text{si } d_i < 0 \\
+\exp\left(\frac{d_i}{10}\right) - 1, & \text{si } d_i \geq 0
+\end{cases}
+$$
+
+avec :
+
+$$
+d_i = \widehat{RUL}_i - RUL_i
+$$
+
+où :
+
+- $\widehat{RUL}_i$ correspond au RUL prédit ;
+- $RUL_i$ correspond au RUL réel ;
+- $d_i < 0$ signifie que le modèle sous-estime le RUL ;
+- $d_i \geq 0$ signifie que le modèle surestime le RUL.
+
+Le NASA Score n'est pas borné et ne s'interprète pas comme un pourcentage ou comme une note sur 100. Plus le score est faible, meilleur est le modèle. Un score de 0 correspondrait à des prédictions parfaites.
+
+En pratique, cette métrique permet d'évaluer non seulement la précision statistique du modèle, mais aussi la criticité métier des erreurs de prédiction.
 
 ---
 
