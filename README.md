@@ -235,15 +235,33 @@ Cette étape est essentielle : si les cycles d'un même moteur étaient réparti
 
 ## Métriques d'évaluation
 
-| Métrique | Signification | Interprétation |
-|---|---|---|
-| RMSE | Racine de l'erreur quadratique moyenne | Pénalise fortement les grandes erreurs |
-| MAE | Erreur absolue moyenne | Mesure l'écart moyen entre RUL réel et prédit |
-| Score NASA/PHM'08 | Score asymétrique de la compétition PHM'08 | Pénalise davantage certaines erreurs selon leur impact |
+Trois métriques complémentaires sont utilisées pour évaluer le modèle.
 
-Dans un contexte de maintenance prédictive, toutes les erreurs n'ont pas le même impact.  
-Une prédiction trop optimiste est particulièrement risquée : si le modèle prédit qu'un moteur peut encore fonctionner longtemps alors qu'il est proche de la panne, la maintenance peut être retardée.  
-Le score NASA/PHM'08 permet de tenir compte de cette asymétrie.
+### RMSE — Racine de l'erreur quadratique moyenne
+
+Le RMSE mesure l'écart moyen entre le RUL prédit et le RUL réel, exprimé en **nombre de cycles**.  
+Un RMSE de 23 cycles signifie que le modèle se trompe en moyenne de 23 cycles sur sa prédiction.  
+**Plus le RMSE est faible, meilleure est la prédiction.**  
+Il pénalise davantage les grandes erreurs que les petites.
+
+### MAE — Erreur absolue moyenne
+
+Le MAE mesure également l'écart moyen entre prédit et réel, mais sans pénaliser les grandes erreurs.  
+Un MAE de 16 cycles signifie que la moitié des prédictions sont à moins de 16 cycles du RUL réel.  
+**Plus le MAE est faible, meilleure est la prédiction.**
+
+### Score NASA/PHM'08 — Score asymétrique
+
+Ce score a été défini par la NASA pour la compétition PHM'08.  
+Il introduit une **asymétrie** dans la pénalisation des erreurs :
+
+- Prédire un RUL **trop optimiste** (le moteur est proche de la panne mais le modèle dit qu'il tient encore longtemps) est **fortement pénalisé** — c'est la situation la plus dangereuse.
+- Prédire un RUL **trop pessimiste** (le modèle dit que le moteur va tomber en panne alors qu'il tient encore) est pénalisé mais moins sévèrement — c'est simplement du gaspillage de maintenance.
+
+**Plus le score NASA est faible, meilleur est le modèle.**  
+Un score de 5 331 sur le test set indique que les erreurs dangereuses restent limitées.
+
+> Saxena et al. (2008), p.7 — Section VII — [PDF](docs/Damage_Propagation_Modeling.pdf)
 
 ---
 
