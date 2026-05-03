@@ -155,11 +155,6 @@ n_watch = int((test_pred["risk_label"] == "À surveiller").sum())
 n_stable = int((test_pred["risk_label"] == "Stable").sum())
 mean_predicted_rul = float(test_pred["predicted_RUL"].mean())
 
-selected_risks = st.multiselect(
-    "Filtrer les moteurs par niveau de risque",
-    options=["Critique", "À surveiller", "Stable"],
-    default=["Critique", "À surveiller", "Stable"],
-)
 
 filtered_pred = test_pred[test_pred["risk_label"].isin(selected_risks)].copy()
 
@@ -219,6 +214,12 @@ st.info(
 **Règle de décision utilisée :**  
 Critique : RUL prédit ≤ 30 cycles · À surveiller : RUL prédit ≤ 60 cycles · Stable : RUL prédit > 60 cycles
 """
+)
+
+selected_risks = st.multiselect(
+    "Filtrer les moteurs par niveau de risque",
+    options=["Critique", "À surveiller", "Stable"],
+    default=["Critique", "À surveiller", "Stable"],
 )
 
 priority_table = prepare_display_table(filtered_pred)
