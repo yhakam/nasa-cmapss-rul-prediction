@@ -151,17 +151,17 @@ Plus le RUL prédit est faible, plus la maintenance est prioritaire.
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("🔴 Moteurs critiques", n_high)
-col2.metric("🟠 Moteurs moyens", n_medium)
-col3.metric("🔵 Moteurs faibles", n_low)
+col1.metric("Moteurs critiques", n_high)
+col2.metric("Moteurs moyens", n_medium)
+col3.metric("Moteurs faibles", n_low)
 col4.metric("RUL moyen prédit", f"{mean_predicted_rul:.1f} cycles")
 
 st.markdown(
     """
 **Règle de décision utilisée :**
-- 🔴 **Critique** : RUL prédit ≤ 30 cycles
-- 🟠 **Moyen** : RUL prédit ≤ 60 cycles
-- 🔵 **Faible** : RUL prédit > 60 cycles
+- **Critique** : RUL prédit ≤ 30 cycles
+- **Moyen** : RUL prédit ≤ 60 cycles
+- **Faible** : RUL prédit > 60 cycles
 """
 )
 
