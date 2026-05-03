@@ -99,6 +99,16 @@ def prepare_display_table(test_pred: pd.DataFrame) -> pd.DataFrame:
     return df_display
 
 
+def get_sensor_cols(test_features: pd.DataFrame) -> list[str]:
+    return [
+        col for col in test_features.columns
+        if col.startswith("sensor_")
+        and "rollmean" not in col
+        and "delta" not in col
+    ]
+
+
+# ── Chargement ────────────────────────────────────────────────────────────────
 test_pred, test_features, metrics = load_data()
 
 test_metrics = metrics["test_last_cycle"]["random_forest"]
@@ -114,13 +124,13 @@ mean_predicted_rul = float(test_pred["predicted_RUL"].mean())
 # ── Header ────────────────────────────────────────────────────────────────────
 st.title("NASA CMAPSS — Tableau de bord de Maintenance Prédictive")
 st.markdown("""
-Ce dashboard transforme les prédictions de **durée de vie résiduelle (RUL)** 
+Ce dashboard transforme les prédictions de **durée de vie résiduelle (RUL)**
 en outil d'aide à la décision pour la maintenance industrielle.
 
 **Question métier principale : quels moteurs doivent être surveillés ou maintenus en priorité ?**
 
-Le modèle prédit le nombre de cycles restants avant panne à partir des signaux 
-capteurs du dataset **NASA CMAPSS FD001** — un dataset de référence en maintenance 
+Le modèle prédit le nombre de cycles restants avant panne à partir des signaux
+capteurs du dataset **NASA CMAPSS FD001** — un dataset de référence en maintenance
 prédictive, issu d'une compétition NASA/PHM'08 (*Saxena et al., 2008*).
 """)
 
@@ -129,15 +139,24 @@ st.divider()
 # ── Section 1 ─────────────────────────────────────────────────────────────────
 st.header("1. Vue opérationnelle — Priorisation de maintenance")
 st.markdown("""
-Les 100 moteurs du dataset test sont classés selon leur **RUL prédit**.  
-Un RUL faible indique qu'un moteur approche de sa limite opérationnelle 
+Les 100 moteurs du dataset test sont classés selon leur **RUL prédit**.
+Un RUL faible indique qu'un moteur approche de sa limite opérationnelle
 et doit être maintenu en priorité.
 """)
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Moteurs critiques", n_high, help="RUL prédit ≤ 30 cycles — Maintenance immédiate")
-col2.metric("Moteurs moyens", n_medium, help="RUL prédit ≤ 60 cycles — Planifier sous 2 semaines")
-col3.metric("Moteurs faibles", n_low, help="RUL prédit > 60 cycles — Surveillance normale")
+col1.metric(
+    "Moteurs critiques", n_high,
+    help="RUL prédit ≤ 30 cycles — Maintenance immédiate requise"
+)
+col2.metric(
+    "Moteurs à surveiller", n_medium,
+    help="RUL prédit ≤ 60 cycles — Planifier la maintenance"
+)
+col3.metric(
+    "Moteurs stables", n_low,
+    help="RUL prédit > 60 cycles — Surveillance normale"
+)
 col4.metric("RUL moyen prédit", f"{mean_predicted_rul:.1f} cycles")
 
 st.markdown("""
@@ -157,9 +176,12 @@ st.divider()
 # ── Section 2 ─────────────────────────────────────────────────────────────────
 st.header("2. Analyse détaillée d'un moteur")
 st.markdown("""
-Sélectionnez un moteur pour visualiser son niveau de risque, son RUL prédit 
-et l'évolution de ses capteurs au fil des cycles observés.  
+Sélectionnez un moteur pour visualiser son niveau de risque, son RUL prédit
+et l'évolution de ses capteurs au fil des cycles observés.
 Cette section permet de passer d'une vue globale à une analyse moteur par moteur.
+
+Le **RUL réel** est affiché ici car le dataset NASA fournit les valeurs de référence,
+ce qui permet d'évaluer objectivement la précision des prédictions.
 """)
 
 selected_unit = st.selectbox(
@@ -178,12 +200,7 @@ col_b.metric("RUL réel", f"{unit_pred['true_RUL']:.0f} cycles")
 col_c.metric("Erreur", f"{unit_pred['absolute_error']:.0f} cycles")
 col_d.metric("Niveau de risque", unit_risk_label)
 
-sensor_cols = [
-    col for col in test_features.columns
-    if col.startswith("sensor_")
-    and "rollmean" not in col
-    and "delta" not in col
-]
+sensor_cols = get_sensor_cols(test_features)
 
 selected_sensor = st.selectbox(
     "Sélectionner un capteur à visualiser",
@@ -220,12 +237,13 @@ fig_sensor.update_layout(
 )
 st.plotly_chart(fig_sensor, use_container_width=True)
 st.caption("""
-Le signal brut (gris) montre les mesures cycle par cycle — bruité par nature 
-selon Saxena et al. (2008). La moyenne glissante sur 5 cycles (bleu) lisse ce bruit 
-pour révéler la tendance de dégradation réelle.
+Le signal brut (gris) montre les mesures cycle par cycle.
+La moyenne glissante sur 5 cycles (bleu) lisse les fluctuations locales
+pour rendre la tendance de dégradation plus lisible.
 
-Note : les données test sont intentionnellement tronquées avant la panne — 
-le nombre de cycles observés est donc limité par construction du dataset.
+Note : les données test sont intentionnellement tronquées avant la panne —
+le nombre de cycles observés est donc limité par construction du dataset
+(Saxena et al., 2008 — Section VI).
 """)
 
 st.divider()
@@ -233,18 +251,31 @@ st.divider()
 # ── Section 3 ─────────────────────────────────────────────────────────────────
 st.header("3. Performance du modèle — Peut-on faire confiance aux prédictions ?")
 st.markdown("""
-Le modèle est évalué sur les 100 moteurs test du dataset NASA CMAPSS FD001.  
-L'évaluation porte sur le **dernier cycle observé** de chaque moteur — 
-c'est le scénario réel : on prédit le RUL à partir du dernier état connu du moteur.
+Le modèle est évalué sur les 100 moteurs test du dataset NASA CMAPSS FD001.
+L'évaluation porte sur le **dernier cycle observé** de chaque moteur :
+c'est le scénario opérationnel dans lequel on prédit le RUL à partir du dernier état connu.
 
-La diagonale pointillée représente une prédiction parfaite.  
+Le **RUL réel** est disponible dans le dataset de référence, ce qui permet de mesurer
+l'erreur de prédiction. Dans un cas industriel réel, cette valeur ne serait connue
+qu'après la fin de vie du moteur.
+
+La diagonale pointillée représente une prédiction parfaite.
 Plus les points s'en rapprochent, meilleure est la prédiction.
 """)
 
 col_m1, col_m2, col_m3 = st.columns(3)
-col_m1.metric("RMSE", f"{rmse:.1f} cycles", help="Erreur quadratique moyenne — cohérent avec l'état de l'art sur CMAPSS FD001 (15-30 cycles)")
-col_m2.metric("MAE", f"{mae:.1f} cycles", help="Erreur absolue moyenne")
-col_m3.metric("Score NASA", f"{nasa:.0f}", help="Score asymétrique PHM'08 — pénalise davantage les prédictions tardives")
+col_m1.metric(
+    "RMSE", f"{rmse:.1f} cycles",
+    help="Erreur quadratique moyenne. Plus elle est faible, meilleure est la prédiction."
+)
+col_m2.metric(
+    "MAE", f"{mae:.1f} cycles",
+    help="Erreur absolue moyenne en cycles."
+)
+col_m3.metric(
+    "Score NASA", f"{nasa:.0f}",
+    help="Score asymétrique PHM'08 — pénalise davantage les prédictions tardives que les prédictions précoces."
+)
 
 col_left, col_right = st.columns(2)
 
@@ -288,14 +319,14 @@ st.divider()
 # ── Section 4 ─────────────────────────────────────────────────────────────────
 st.header("4. Comparaison avec une baseline")
 st.markdown("""
-Pour valider que le modèle principal apporte une vraie valeur, il est comparé 
+Pour valider que le modèle principal apporte une vraie valeur, il est comparé
 à une **Ridge Regression** — une baseline simple et interprétable.
 
 L'évaluation est faite sur deux niveaux :
 - **Tous les cycles** : le modèle prédit le RUL à chaque cycle de chaque moteur
-- **Dernier cycle par moteur** : le scénario opérationnel réel
+- **Dernier cycle par moteur** : le scénario opérationnel principal
 
-Un bon modèle doit battre la baseline sur les deux niveaux.
+Un bon modèle doit apporter un gain mesurable par rapport à la baseline sur ces deux niveaux.
 """)
 
 comparison_df = build_model_comparison(metrics)
@@ -306,7 +337,10 @@ fig_comparison = px.bar(
     x="Évaluation",
     y="RMSE",
     color="Modèle",
-    color_discrete_map={"Ridge baseline": "#888780", "Random Forest": "#378ADD"},
+    color_discrete_map={
+        "Ridge baseline": "#888780",
+        "Random Forest": "#378ADD",
+    },
     barmode="group",
     title="Comparaison RMSE — Ridge baseline vs Random Forest",
     labels={"RMSE": "RMSE (cycles)"},
@@ -316,17 +350,18 @@ st.plotly_chart(fig_comparison, use_container_width=True)
 st.divider()
 
 # ── Résumé ────────────────────────────────────────────────────────────────────
-st.markdown("""
+st.markdown(f"""
 ### Résumé
 
 Ce dashboard répond à trois questions :
 
-1. **Quels moteurs sont prioritaires pour la maintenance ?**  
+1. **Quels moteurs sont prioritaires pour la maintenance ?**
    → Voir la vue opérationnelle et la table de priorisation.
 
-2. **Quel est l'état détaillé d'un moteur donné ?**  
+2. **Quel est l'état détaillé d'un moteur donné ?**
    → Voir l'analyse individuelle avec les courbes capteurs.
 
-3. **Quelle est la fiabilité du modèle de prédiction RUL ?**  
-   → RMSE de 23.2 cycles sur le test set NASA — cohérent avec les performances attendues pour un modèle Random Forest sur CMAPSS FD001.
+3. **Quelle est la fiabilité du modèle de prédiction RUL ?**
+   → RMSE de **{rmse:.1f} cycles** sur le test set NASA CMAPSS FD001,
+   pour une première approche Random Forest sans optimisation avancée.
 """)
