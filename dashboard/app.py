@@ -155,7 +155,6 @@ n_watch = int((test_pred["risk_label"] == "À surveiller").sum())
 n_stable = int((test_pred["risk_label"] == "Stable").sum())
 mean_predicted_rul = float(test_pred["predicted_RUL"].mean())
 
-
 st.title("NASA CMAPSS — Tableau de bord de Maintenance Prédictive")
 
 st.markdown(
@@ -214,7 +213,7 @@ Critique : RUL prédit ≤ 30 cycles · À surveiller : RUL prédit ≤ 60 cycle
 """
 )
 
-priority_table = prepare_display_table(filtered_pred)
+priority_table = prepare_display_table(test_pred)
 
 st.subheader("Moteurs à prioriser")
 st.caption("Table triée par niveau de risque puis par RUL prédit croissant.")
@@ -235,15 +234,9 @@ ce qui permet d'évaluer objectivement la précision des prédictions.
 """
 )
 
-available_units = sorted(filtered_pred["unit_id"].unique())
-
-if not available_units:
-    st.warning("Aucun moteur ne correspond au filtre sélectionné.")
-    st.stop()
-
 selected_unit = st.selectbox(
     "Sélectionner un moteur",
-    options=available_units,
+    options=sorted(test_pred["unit_id"].unique()),
     format_func=lambda x: f"Moteur {x}",
 )
 
@@ -451,7 +444,7 @@ st.markdown(
 Ce dashboard répond à trois questions :
 
 1. **Quels moteurs sont prioritaires pour la maintenance ?**  
-   → Vue opérationnelle, filtres de risque et table de priorisation.
+   → Vue opérationnelle et table de priorisation.
 
 2. **Quel est l'état détaillé d'un moteur donné ?**  
    → Analyse individuelle avec RUL prédit, niveau de risque et courbes capteurs.
