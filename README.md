@@ -285,9 +285,14 @@ où :
 - $d_i < 0$ signifie que le modèle sous-estime le RUL ;
 - $d_i \geq 0$ signifie que le modèle surestime le RUL.
 
-Le NASA Score n'est pas borné et ne s'interprète pas comme un pourcentage ou comme une note sur 100. Plus le score est faible, meilleur est le modèle. Un score de 0 correspondrait à des prédictions parfaites.
+Le NASA Score n'est pas borné et ne s'interprète pas comme un pourcentage ou une note sur 100.  
+**Plus le score est faible, meilleur est le modèle. Un score de 0 correspondrait à des prédictions parfaites.**
+
+Pour donner un ordre de grandeur : un score de 5 332 sur 100 moteurs correspond à une pénalité asymétrique moyenne d'environ 53 points par moteur — ce qui reflète des erreurs modérées, davantage pénalisées lorsqu'elles surestiment le RUL restant.
 
 En pratique, cette métrique permet d'évaluer non seulement la précision statistique du modèle, mais aussi la criticité métier des erreurs de prédiction.
+
+> Saxena et al. (2008), p.7 — Section VII (Performance Evaluation) — [PDF](docs/Damage_Propagation_Modeling.pdf)
 
 ---
 
