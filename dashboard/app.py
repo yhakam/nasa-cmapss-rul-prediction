@@ -408,8 +408,8 @@ st.markdown(
     """
 Le **Random Forest** est comparé à une **Ridge Regression**, utilisée comme baseline simple et interprétable.
 
-Sur la validation interne, le Random Forest améliore la RMSE et la MAE par rapport à la baseline.  
-Le score NASA reste cependant plus élevé, ce qui indique que certaines erreurs sont davantage pénalisées par la métrique asymétrique PHM'08.
+Sur la validation interne, le Random Forest réduit les erreurs de prédiction par rapport à la baseline.  
+Cette amélioration se traduit par une RMSE et une MAE plus faibles, deux métriques qui mesurent l'écart entre le RUL réel et le RUL prédit.
 """
 )
 
