@@ -156,8 +156,6 @@ n_stable = int((test_pred["risk_label"] == "Stable").sum())
 mean_predicted_rul = float(test_pred["predicted_RUL"].mean())
 
 
-filtered_pred = test_pred[test_pred["risk_label"].isin(selected_risks)].copy()
-
 st.title("NASA CMAPSS — Tableau de bord de Maintenance Prédictive")
 
 st.markdown(
