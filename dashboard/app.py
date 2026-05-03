@@ -66,18 +66,16 @@ def build_model_comparison(metrics: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
-                "Évaluation": "Tous les cycles — validation",
+                "Évaluation": "Validation interne",
                 "Modèle": "Ridge baseline",
                 "RMSE": metrics["validation_all_cycles"]["ridge_baseline"]["rmse"],
                 "MAE": metrics["validation_all_cycles"]["ridge_baseline"]["mae"],
-                "Score NASA": metrics["validation_all_cycles"]["ridge_baseline"]["nasa_score"],
             },
             {
-                "Évaluation": "Tous les cycles — validation",
+                "Évaluation": "Validation interne",
                 "Modèle": "Random Forest",
                 "RMSE": metrics["validation_all_cycles"]["random_forest"]["rmse"],
                 "MAE": metrics["validation_all_cycles"]["random_forest"]["mae"],
-                "Score NASA": metrics["validation_all_cycles"]["random_forest"]["nasa_score"],
             },
         ]
     )
