@@ -328,5 +328,5 @@ Ce dashboard répond à trois questions :
    → Voir l'analyse individuelle avec les courbes capteurs.
 
 3. **Quelle est la fiabilité du modèle de prédiction RUL ?**  
-   → RMSE de 23.2 cycles sur le test set NASA — cohérent avec l'état de l'art.
+   → RMSE de 23.2 cycles sur le test set NASA — cohérent avec les performances attendues pour un modèle Random Forest sur CMAPSS FD001.
 """)
