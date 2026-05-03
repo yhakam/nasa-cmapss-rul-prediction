@@ -302,12 +302,12 @@ Contrairement à la MSE, la RMSE est exprimée dans la même unité que la cible
 
 Le NASA Score, aussi appelé PHM08 Score, est une métrique spécifique à la prédiction du Remaining Useful Life.
 
-Contrairement à la MAE ou à la RMSE, il applique une pénalité asymétrique : les surestimations du RUL sont davantage pénalisées que les sous-estimations.
+Contrairement à la MAE ou à la RMSE, il applique une pénalité asymétrique : les surestimations du RUL sont davantage pénalisées que les sous-estimations, car elles sont plus dangereuses dans un contexte de maintenance prédictive.
 
 Cette logique est particulièrement adaptée à la maintenance prédictive :
 
 - sous-estimer le RUL conduit à une maintenance anticipée ;
-- surestimer le RUL peut conduire à une panne non anticipée.
+- surestimer le RUL est plus critique, car cela peut conduire à une panne non anticipée et à un risque opérationnel plus élevé.
 
 Le score est défini par la formule suivante :
 
