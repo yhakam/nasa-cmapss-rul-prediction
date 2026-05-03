@@ -3,8 +3,8 @@ from pathlib import Path
 
 
 PROCESSED_DIR = Path("data/processed")
-RUL_CAP = 150 
-STD_THRESHOLD = 0.5
+RUL_CAP = 150  # Dans le doc il est mentionné que les RUL du data set test vont de 10 à 150 et ceux du train de 6 à 190
+STD_THRESHOLD = 0.5 # Threshold qu'on a observé via l'EDA
 
 def load_processed_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     train = pd.read_csv(PROCESSED_DIR/"train_processed.csv")
