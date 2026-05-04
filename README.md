@@ -1,4 +1,4 @@
-# NASA CMAPSS — Maintenance prédictive & prédiction de RUL
+# NASA CMAPSS — Maintenance Prédictive & Prédiction de RUL
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![Scikit-learn](https://img.shields.io/badge/Scikit--learn-ML-orange)
@@ -23,7 +23,7 @@ Ce projet répond à une problématique industrielle simple :
 > **Quels moteurs doivent être maintenus en priorité avant qu’une panne ne survienne ?**
 
 À partir de données capteurs simulant le vieillissement de moteurs, un modèle de Machine Learning prédit le nombre de cycles restants avant panne.  
-Les prédictions sont ensuite converties en niveaux de risque opérationnels :
+Les prédictions sont ensuite transformées en niveaux de risque opérationnels :
 
 - **Critique** : maintenance prioritaire ;
 - **À surveiller** : maintenance à planifier ;
@@ -46,7 +46,7 @@ Le dashboard permet donc de passer d’une prédiction ML à une décision méti
 | Dashboard | Streamlit déployé en ligne |
 
 Le modèle obtient une erreur absolue moyenne de **16.72 cycles** sur le test set NASA.  
-Les prédictions sont ensuite transformées en niveaux de risque afin de prioriser les moteurs nécessitant une intervention de maintenance.
+Les prédictions sont ensuite converties en niveaux de risque afin de prioriser les moteurs nécessitant une intervention de maintenance.
 
 ---
 
@@ -118,6 +118,15 @@ FD001 correspond à un cas simplifié :
 
 Le train set contient des moteurs observés jusqu’à la panne.  
 Le test set contient des moteurs tronqués avant panne, avec un fichier séparé donnant le RUL réel final.
+
+La documentation du dataset est conservée dans :
+
+```text
+docs/readme.txt
+docs/Damage_Propagation_Modeling.pdf
+```
+
+Le PDF de Saxena et al. (2008) décrit notamment la génération des données, la simulation run-to-failure et la métrique utilisée dans la compétition PHM’08.
 
 ---
 
@@ -343,12 +352,13 @@ s = \sum_{i=1}^{n}
 \exp\left(\frac{d_i}{10}\right) - 1, & \text{si } d_i \geq 0
 \end{cases}
 \quad \text{avec} \quad
- d_i = \widehat{RUL}_i - RUL_i
+d_i = \widehat{RUL}_i - RUL_i
 ```
 
 Le score n’est pas borné. **Plus il est faible, meilleur est le modèle.**
 
-> Sur le test set NASA : **NASA Score de 5,331.90** sur 100 moteurs, soit environ **53.3 points par moteur** en moyenne.
+> Sur le test set NASA : **NASA Score de 5,331.90** sur 100 moteurs, soit environ **53.3 points par moteur** en moyenne.  
+> Référence : `docs/Damage_Propagation_Modeling.pdf`, Saxena et al. (2008), Section VII.
 
 ---
 
@@ -443,17 +453,52 @@ Le dashboard répond à trois questions opérationnelles :
 
 ## Lancer le projet en local
 
+### 1. Cloner le repository
+
 ```bash
 git clone https://github.com/yhakam/nasa-cmapss-rul-prediction
 cd nasa-cmapss-rul-prediction
+```
 
+### 2. Créer et activer l’environnement virtuel
+
+```bash
 python -m venv venv
 venv\Scripts\Activate.ps1
+```
 
+### 3. Installer les dépendances
+
+```bash
 pip install -r requirements.txt
 ```
 
-Placer les fichiers NASA CMAPSS dans `data/raw/`, puis lancer le pipeline :
+### 4. Ajouter les données NASA CMAPSS
+
+Télécharger le dataset **CMAPSS Jet Engine Simulated Data** depuis le portail NASA Open Data, puis placer les fichiers bruts dans :
+
+```text
+data/raw/
+```
+
+Les fichiers attendus pour FD001 sont notamment :
+
+```text
+train_FD001.txt
+test_FD001.txt
+RUL_FD001.txt
+```
+
+La documentation fournie avec le dataset est conservée dans :
+
+```text
+docs/readme.txt
+docs/Damage_Propagation_Modeling.pdf
+```
+
+Le PDF de Saxena et al. (2008) décrit la génération des données, le contexte de simulation et la métrique utilisée dans la compétition PHM’08.
+
+### 5. Lancer le pipeline complet
 
 ```bash
 python src/ingestion/load.py
@@ -462,23 +507,44 @@ python src/features/engineer.py
 python src/models/train.py
 ```
 
-Construire la base SQLite :
+Ces scripts génèrent les fichiers intermédiaires dans `data/processed/` ainsi que les artefacts du modèle dans `models/`.
+
+### 6. Construire la base SQLite
 
 ```bash
 python src/database/db.py
 ```
 
-Exécuter les requêtes SQL métier :
+Cette commande crée localement :
+
+```text
+database/cmapss.db
+```
+
+La base contient les prédictions, les métriques et les données capteurs utilisées pour les analyses SQL.
+
+### 7. Exécuter les requêtes métier SQL
 
 ```bash
 python src/database/run_queries.py
 ```
 
-Lancer le dashboard :
+Les requêtes sont définies dans :
+
+```text
+sql/queries.sql
+```
+
+Elles permettent notamment d’identifier les moteurs critiques, d’analyser les erreurs du modèle et de suivre les niveaux de risque.
+
+### 8. Lancer le dashboard Streamlit
 
 ```bash
 streamlit run dashboard/app.py
 ```
+
+Le dashboard utilise SQLite si la base est disponible.  
+Si la base n’existe pas, il bascule automatiquement sur les fichiers CSV générés par le pipeline.
 
 ---
 
@@ -521,10 +587,42 @@ database/cmapss.db   # générée par db.py, non versionnée
 
 ---
 
-## Référence
+## Références
+
+Ce projet s’appuie sur le dataset **NASA CMAPSS FD001**, largement utilisé comme référence pour les travaux de maintenance prédictive et de prédiction de durée de vie résiduelle.
+
+### Article de référence
 
 Saxena, A., Goebel, K., Simon, D., & Eklund, N. (2008).  
-*Damage Propagation Modeling for Aircraft Engine Run-to-Failure Simulation.* PHM’08, Denver, CO.  
-[PDF](docs/Damage_Propagation_Modeling.pdf)
+*Damage Propagation Modeling for Aircraft Engine Run-to-Failure Simulation.*  
+International Conference on Prognostics and Health Management, PHM’08, Denver, CO.
 
-Données : [NASA CMAPSS Dataset](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data) — open data, usage non commercial.
+Le document est inclus dans le repository :
+
+```text
+docs/Damage_Propagation_Modeling.pdf
+```
+
+Il décrit notamment :
+
+- le contexte de simulation des moteurs ;
+- la génération des trajectoires run-to-failure ;
+- la structure des données CMAPSS ;
+- la tâche de prédiction de RUL ;
+- le score asymétrique utilisé dans la compétition PHM’08.
+
+### Documentation du dataset
+
+La documentation NASA du dataset est également conservée dans :
+
+```text
+docs/readme.txt
+```
+
+Elle précise la structure des fichiers, les colonnes disponibles, les conditions opérationnelles et les capteurs.
+
+### Données
+
+Dataset : [NASA CMAPSS Jet Engine Simulated Data](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data)
+
+Les données sont utilisées dans un cadre pédagogique et non commercial.
