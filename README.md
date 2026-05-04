@@ -9,7 +9,7 @@
 Projet Data Science de bout en bout sur le dataset **NASA CMAPSS FD001**.
 
 L'objectif est de prédire la **durée de vie résiduelle** d'un moteur industriel, appelée **RUL — Remaining Useful Life**, à partir de signaux capteurs.  
-Le projet couvre toute la chaîne : ingestion, exploration, preprocessing, feature engineering, modélisation, évaluation, couche analytique SQL et dashboard Streamlit orienté aide à la décision.
+Le projet couvre toute la chaîne : ingestion, exploration, preprocessing, feature engineering, modélisation, évaluation, couche analytique SQL et dashboard Streamlit.
 
 > *"The task was to estimate remaining life of an unspecified system using historical data only."*  
 > — Saxena et al. (2008), p.1 — [PDF](docs/Damage_Propagation_Modeling.pdf)
