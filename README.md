@@ -3,15 +3,16 @@
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![Scikit-learn](https://img.shields.io/badge/Scikit--learn-ML-orange)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-red)
+![SQLite](https://img.shields.io/badge/SQLite-Analytics-lightgrey)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 Projet Data Science de bout en bout sur le dataset de référence **NASA CMAPSS FD001**.
 
 L'objectif est de prédire la **durée de vie résiduelle** d'un moteur industriel, appelée **RUL — Remaining Useful Life**, à partir de signaux capteurs.  
-Le projet couvre toute la chaîne : ingestion, exploration, preprocessing, feature engineering, modélisation, évaluation et dashboard Streamlit orienté aide à la décision.
+Le projet couvre toute la chaîne : ingestion, exploration, preprocessing, feature engineering, modélisation, évaluation, couche analytique SQL et dashboard Streamlit orienté aide à la décision.
 
 > *"The task was to estimate remaining life of an unspecified system using historical data only."*  
-> — Saxena et al. (2008), PHM'08
+> — Saxena et al. (2008), p.1 — [PDF](docs/Damage_Propagation_Modeling.pdf)
 
 ---
 
@@ -32,6 +33,12 @@ Le dashboard permet donc de passer d'une prédiction ML à une décision métier
 
 ---
 
+## Ce que montre ce projet
+
+Ce projet montre ma capacité à transformer un problème industriel en solution data complète : analyse des données, modèle prédictif, évaluation des performances, stockage SQL des résultats et dashboard d'aide à la décision.
+
+---
+
 ## Résultats clés
 
 | Élément | Résultat |
@@ -43,6 +50,7 @@ Le dashboard permet donc de passer d'une prédiction ML à une décision métier
 | MAE test | **16.72 cycles** |
 | NASA Score test | **5,331.90** |
 | Dashboard | Streamlit déployé en ligne |
+| Couche analytique | SQLite — requêtes SQL métier |
 
 Le modèle obtient une erreur moyenne absolue de **16.72 cycles** sur le test set NASA.  
 Les prédictions sont ensuite converties en niveaux de risque afin de prioriser les moteurs nécessitant une intervention de maintenance.
@@ -86,6 +94,9 @@ Une panne non anticipée peut entraîner :
 
 L'objectif de ce projet est donc de prédire le plus tôt possible la durée de vie restante d'un moteur, afin d'aider les équipes opérationnelles à prioriser les interventions.
 
+> *"Reliably estimating remaining life holds the promise for considerable cost savings (for example by avoiding unscheduled maintenance and by increasing equipment usage) and operational safety improvements."*  
+> — Saxena et al. (2008), p.2 — [PDF](docs/Damage_Propagation_Modeling.pdf)
+
 ---
 
 ## Objectif Data Science
@@ -104,19 +115,31 @@ Modèles : Ridge Regression baseline + Random Forest Regressor
 
 ## Dataset
 
-Le projet utilise le sous-ensemble **FD001** du dataset NASA CMAPSS.
+Le projet utilise le sous-ensemble **FD001** du dataset NASA CMAPSS (Commercial Modular Aero-Propulsion System Simulation).
 
-FD001 correspond à un cas simplifié :
+FD001 correspond à un cas simplifié — une seule condition opérationnelle (Sea Level) et un seul mode de défaillance (HPC Degradation) — ce qui en fait le point d'entrée naturel pour développer et valider un pipeline de maintenance prédictive avant de généraliser aux sous-ensembles plus complexes (FD002 à FD004).
 
-- une seule condition opérationnelle ;
-- un seul mode de défaillance ;
-- 100 moteurs dans le train set ;
-- 100 moteurs dans le test set ;
-- des séries temporelles moteur par moteur ;
-- 21 capteurs disponibles.
+> *"Each engine starts with different degrees of initial wear and manufacturing variation which is unknown to the user. This wear and variation is considered normal, i.e., it is not considered a fault condition."*  
+> — NASA CMAPSS Dataset Description — [dataset_info.txt](docs/dataset_info.txt)
 
-Le train set contient des moteurs observés jusqu'à la panne.  
-Le test set contient des moteurs tronqués avant la panne, avec un fichier séparé donnant le RUL réel final.
+| Propriété | FD001 |
+|---|---|
+| Condition opérationnelle | ONE (Sea Level) |
+| Mode de défaillance | ONE (HPC Degradation) |
+| Moteurs train set | 100 |
+| Moteurs test set | 100 |
+| Capteurs disponibles | 21 |
+
+Le moteur simulé est un turbofan de la classe 90 000 lb de poussée, modélisé par C-MAPSS. Les 21 capteurs disponibles couvrent des mesures de température, pression, vitesse de rotation et débits à différents étages du moteur (Table 2, Saxena et al., 2008, p.3 — [PDF](docs/Damage_Propagation_Modeling.pdf)).
+
+Le train set contient des moteurs observés jusqu'à la panne — le critère d'arrêt est l'index de santé H = 0, défini comme le minimum de plusieurs marges opérationnelles (stall margins HPC, LPC, Fan et EGT). Le test set contient des moteurs tronqués avant la panne, avec un fichier séparé donnant le RUL réel final.
+
+> *"The training set had trajectories that ended at the failure threshold while the test and validation sets were pruned to stop some time prior to the failure threshold."*  
+> — Saxena et al. (2008), p.7, Section VI — [PDF](docs/Damage_Propagation_Modeling.pdf)
+
+Source : [NASA CMAPSS Dataset](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data) — open data, usage non commercial.  
+Documentation originale NASA : [docs/dataset_info.txt](docs/dataset_info.txt)  
+Article de référence : [Damage Propagation Modeling (PDF)](docs/Damage_Propagation_Modeling.pdf)
 
 ---
 
@@ -125,31 +148,42 @@ Le test set contient des moteurs tronqués avant la panne, avec un fichier sépa
 ```text
 nasa-cmapss-rul-prediction/
 │
+├── assets/                         # Captures du dashboard
+│
+├── dashboard/
+│   └── app.py                      # Dashboard Streamlit
+│
 ├── data/
-│   ├── raw/                    # Données NASA CMAPSS
-│   └── processed/              # Données nettoyées, features, prédictions
+│   ├── raw/                        # Données NASA CMAPSS brutes
+│   └── processed/                  # Données nettoyées, features, prédictions
+│
+├── database/                       # Dossier local pour la base SQLite générée
+│   └── cmapss.db                   # Générée par db.py — non versionnée (.gitignore)
 │
 ├── docs/
-│   ├── readme.txt              # Documentation NASA du dataset
-│   ├── Damage_Propagation_Modeling.pdf
-│   └── screenshots/            # Captures du dashboard
+│   ├── dataset_info.txt            # Documentation NASA originale du dataset
+│   └── Damage_Propagation_Modeling.pdf  # Article PHM'08 — Saxena et al. (2008)
+│
+├── models/                         # Artefacts modèles sauvegardés
 │
 ├── notebooks/
-│   └── 01_eda_fd001.ipynb      # Exploration et analyse des données
+│   └── 01_eda_fd001.ipynb          # Exploration et analyse des données
+│
+├── sql/
+│   └── queries.sql                 # Requêtes métier réutilisables
 │
 ├── src/
-│   ├── ingestion/
-│   │   └── load.py             # Chargement des données et calcul du RUL train
-│   ├── preprocessing/
-│   │   └── clean.py            # Nettoyage, suppression capteurs, cap RUL
+│   ├── database/
+│   │   ├── db.py                   # Construction de la base SQLite
+│   │   └── run_queries.py          # Exécution des requêtes métier
 │   ├── features/
-│   │   └── engineer.py         # Rolling mean, delta, features temporelles
-│   └── models/
-│       └── train.py            # Baseline, Random Forest, évaluation, prédictions
-│
-├── models/                     # Artefacts sauvegardés
-├── dashboard/
-│   └── app.py                  # Dashboard Streamlit
+│   │   └── engineer.py             # Rolling mean, delta, features temporelles
+│   ├── ingestion/
+│   │   └── load.py                 # Chargement des données et calcul du RUL train
+│   ├── models/
+│   │   └── train.py                # Baseline, Random Forest, évaluation, prédictions
+│   └── preprocessing/
+│       └── clean.py                # Nettoyage, suppression capteurs, cap RUL
 │
 ├── requirements.txt
 └── README.md
@@ -194,8 +228,14 @@ train.py
         └── génération des prédictions test
         │
         ▼
+db.py
+        ├── création de la base SQLite
+        ├── chargement des prédictions, métriques et capteurs
+        └── couche analytique SQL réutilisable
+        │
+        ▼
 app.py
-        └── dashboard Streamlit de priorisation maintenance
+        └── dashboard Streamlit — interroge SQLite si disponible, CSV sinon
 ```
 
 ---
@@ -204,13 +244,14 @@ app.py
 
 ### 1. Exploration des données
 
-L'EDA sur FD001 montre que plusieurs capteurs sont quasi-constants et n'apportent pas de signal de dégradation exploitable.
+L'EDA sur FD001 montre que plusieurs capteurs parmi les 21 disponibles sont quasi-constants sur l'ensemble des trajectoires et n'apportent pas de signal de dégradation exploitable.
 
-Ces capteurs sont supprimés afin de :
+Ce phénomène est cohérent avec la description du dataset : pour FD001, une seule condition opérationnelle (Sea Level) et un seul mode de défaillance (HPC Degradation) sont simulés. Les capteurs non sensibles à cette dégradation spécifique restent naturellement stables.
 
-- réduire le bruit ;
-- simplifier le modèle ;
-- concentrer l'apprentissage sur les signaux réellement informatifs.
+> Les 21 capteurs couvrent des mesures de température (T2, T24, T30, T50), de pression (P2, P15, P30, Ps30), de vitesse (Nf, Nc, NRf, NRc), et d'autres variables opérationnelles (BPR, farB, htBleed, etc.).  
+> — Saxena et al. (2008), p.3, Table 2 — [PDF](docs/Damage_Propagation_Modeling.pdf)
+
+Ces capteurs sont supprimés afin de réduire le bruit, simplifier le modèle et concentrer l'apprentissage sur les signaux réellement informatifs.
 
 Pour FD001, **8 capteurs** sont retenus après analyse de la variance.
 
@@ -220,11 +261,16 @@ Pour FD001, **8 capteurs** sont retenus après analyse de la variance.
 
 | Étape | Choix | Justification |
 |---|---|---|
-| Suppression capteurs | écart-type < 0.5 | Seuil défini à partir de l'EDA pour retirer les capteurs quasi-constants |
-| Cap RUL | 150 cycles | Hypothèse cohérente avec la plage des RUL test FD001 |
+| Suppression capteurs | écart-type < 0.5 | Seuil défini à partir de l'EDA pour retirer les capteurs quasi-constants sur FD001 |
+| Cap RUL | 150 cycles | Borne maximale des RUL du test set FD001 selon Saxena et al. (2008) |
 | Split validation | par moteur | Évite le data leakage entre les cycles d'un même moteur |
 
-Le cap du RUL à 150 cycles est une hypothèse de modélisation : au-delà d'un certain horizon, l'objectif n'est pas de prédire très précisément une durée de vie lointaine, mais d'améliorer l'apprentissage sur les phases proches de la dégradation.
+**Sur le cap du RUL à 150 cycles** : ce choix est directement ancré dans la description du dataset. Saxena et al. précisent que les RUL du test set FD001 sont compris entre 10 et 150 cycles. Fixer un plafond à 150 cycles dans le train set permet d'aligner le modèle sur la plage effective du test set.
+
+> *"The test data set RULs ranged between 10 and 150 cycles."*  
+> — Saxena et al. (2008), p.7, Section VI — [PDF](docs/Damage_Propagation_Modeling.pdf)
+
+Au-delà de 150 cycles, les moteurs du train set sont encore loin de la défaillance. Leur RUL exact importe peu pour la tâche : l'objectif est d'apprendre à estimer la durée de vie résiduelle dans la plage couverte par le test set, et non de prédire des horizons très lointains avec une précision artificielle.
 
 ---
 
@@ -232,8 +278,8 @@ Le cap du RUL à 150 cycles est une hypothèse de modélisation : au-delà d'un 
 
 Pour chaque capteur retenu, deux types de features temporelles sont ajoutés :
 
-- **Rolling mean sur 5 cycles** : lisse les fluctuations locales et rend la tendance plus lisible.
-- **Delta cycle à cycle** : capture la variation instantanée du signal.
+- **Rolling mean sur 5 cycles** : lisse les fluctuations locales liées au bruit de mesure et rend la tendance de dégradation plus lisible. Ce bruit multi-couche est inhérent au dataset : Saxena et al. décrivent une contamination combinant bruit de fabrication, bruit de processus et bruit de mesure, délibérément conçue pour reproduire les défis du signal réel (Section V.B, p.5–6 — [PDF](docs/Damage_Propagation_Modeling.pdf)).
+- **Delta cycle à cycle** : capture la variation instantanée du signal, complémentaire de la tendance lissée.
 
 Pour FD001 :
 
@@ -247,10 +293,45 @@ Pour FD001 :
 
 Le split train/validation est effectué **par moteur** et non par ligne.
 
-Cette étape est essentielle : si les cycles d'un même moteur étaient répartis à la fois dans le train et dans la validation, le modèle pourrait apprendre des patterns propres à ce moteur, ce qui créerait du **data leakage**.
+Cette étape est essentielle : si les cycles d'un même moteur étaient répartis à la fois dans le train et dans la validation, le modèle pourrait apprendre des patterns propres à ce moteur, ce qui créerait du **data leakage**. Ce risque est d'autant plus réel que chaque moteur du dataset démarre avec un niveau d'usure initiale différent, inconnu du modèle.
+
+> *"Each engine starts with different degrees of initial wear and manufacturing variation which is unknown to the user."*  
+> — NASA CMAPSS Dataset Description — [dataset_info.txt](docs/dataset_info.txt)
 
 - 80 moteurs → entraînement
 - 20 moteurs → validation
+
+---
+
+## SQL Analytics Layer
+
+Les sorties du pipeline sont persistées dans une base **SQLite** (`database/cmapss.db`), générée localement :
+
+```bash
+python src/database/db.py
+```
+
+| Table | Contenu |
+|---|---|
+| `predictions` | RUL prédit, RUL réel, erreur absolue, niveau de risque par moteur |
+| `metrics` | RMSE, MAE, score NASA pour chaque modèle |
+| `sensor_readings` | Signaux capteurs bruts et features temporelles par cycle |
+
+Le fichier `sql/queries.sql` contient des requêtes métier réutilisables :
+
+- moteurs critiques ;
+- répartition des niveaux de risque ;
+- analyse des erreurs de prédiction ;
+- RUL moyen par catégorie ;
+- évolution d'un capteur pour un moteur donné.
+
+```bash
+python src/database/run_queries.py
+```
+
+Cette couche permet de traiter les sorties du modèle comme une base analytique interrogeable, plutôt que comme de simples fichiers CSV.
+
+> La base SQLite n'est pas versionnée — elle est générée localement à partir des fichiers du pipeline. Le dashboard bascule automatiquement sur les fichiers CSV si la base n'est pas disponible, par exemple sur Streamlit Cloud.
 
 ---
 
@@ -300,37 +381,36 @@ Contrairement à la MSE, la RMSE est exprimée dans la même unité que la cible
 
 ### NASA Score / PHM08 Score
 
-Le NASA Score, aussi appelé PHM08 Score, est une métrique spécifique à la prédiction du Remaining Useful Life.
+Le NASA Score, aussi appelé PHM08 Score, est une métrique spécifique à la prédiction du Remaining Useful Life, définie dans l'article de référence du dataset.
 
-Contrairement à la MAE ou à la RMSE, il applique une pénalité asymétrique : les surestimations du RUL sont davantage pénalisées que les sous-estimations, car elles sont plus dangereuses dans un contexte de maintenance prédictive.
+Contrairement à la MAE ou à la RMSE, il applique une pénalité asymétrique : les surestimations du RUL sont davantage pénalisées que les sous-estimations, car elles peuvent retarder une intervention de maintenance et conduire à une panne non anticipée.
+
+> *"For an engine degradation scenario an early prediction is preferred over late predictions. Therefore, the scoring algorithm for this challenge was asymmetric around the true time of failure such that late predictions were more heavily penalized than early predictions."*  
+> — Saxena et al. (2008), p.7, Section VII — [PDF](docs/Damage_Propagation_Modeling.pdf)
 
 Cette logique est particulièrement adaptée à la maintenance prédictive :
 
 - sous-estimer le RUL conduit à une maintenance anticipée ;
 - surestimer le RUL est plus critique, car cela peut conduire à une panne non anticipée et à un risque opérationnel plus élevé.
 
-Le score est défini par la formule suivante :
+Le score est défini par l'équation (11) de Saxena et al. (2008) :
 
 $$
 s = \sum_{i=1}^{n}
 \begin{cases}
-\exp\left(-\frac{d_i}{13}\right) - 1, & \text{si } d_i < 0 \\
-\exp\left(\frac{d_i}{10}\right) - 1, & \text{si } d_i \geq 0
+e^{-d_i / 13} - 1, & \text{si } d_i < 0 \\
+e^{d_i / 10} - 1, & \text{si } d_i \geq 0
 \end{cases}
 $$
 
-avec :
-
-$$
-d_i = \widehat{RUL}_i - RUL_i
-$$
+avec $d_i = \widehat{RUL}_i - RUL_i$, $a_1 = 10$ et $a_2 = 13$.
 
 où :
 
 - $\widehat{RUL}_i$ correspond au RUL prédit ;
 - $RUL_i$ correspond au RUL réel ;
-- $d_i < 0$ signifie que le modèle sous-estime le RUL ;
-- $d_i \geq 0$ signifie que le modèle surestime le RUL.
+- $d_i < 0$ signifie que le modèle sous-estime le RUL (pénalité plus faible) ;
+- $d_i \geq 0$ signifie que le modèle surestime le RUL (pénalité plus forte).
 
 Le NASA Score n'est pas borné et ne s'interprète pas comme un pourcentage ou une note sur 100.  
 Plus le score est faible, meilleur est le modèle. Un score de 0 correspondrait à des prédictions parfaites.
@@ -340,7 +420,7 @@ Plus le score est faible, meilleur est le modèle. Un score de 0 correspondrait 
 
 En pratique, cette métrique permet d'évaluer non seulement la précision statistique du modèle, mais aussi la criticité métier des erreurs de prédiction.
 
-> Saxena et al. (2008), p.7 — Section VII (Performance Evaluation) — [PDF](docs/Damage_Propagation_Modeling.pdf)
+> Saxena et al. (2008), p.7, Section VII, eq. (11) — [PDF](docs/Damage_Propagation_Modeling.pdf)
 
 ---
 
@@ -374,11 +454,11 @@ Cela montre qu'un modèle peut être meilleur en erreur moyenne tout en étant m
 | Score NASA/PHM'08 | **5,331.90** |
 
 Le test set NASA est évalué sur les 100 moteurs test, à partir du dernier cycle observé pour chaque moteur.  
-Contrairement au train set, les moteurs test sont tronqués avant la panne : le RUL réel n'est donc pas nécessairement proche de zéro.
+Contrairement au train set, les moteurs test sont tronqués avant la panne — leurs RUL réels sont compris entre 10 et 150 cycles (Saxena et al., 2008, p.7, Section VI — [PDF](docs/Damage_Propagation_Modeling.pdf)).
 
 ---
 
-> ⚠️ **Note sur l'évaluation "last cycle"**  
+> **Note sur l'évaluation "last cycle"**  
 > Une évaluation "last cycle" sur le split validation interne donne des scores très faibles, car les moteurs du train set sont observés jusqu'à la panne — le dernier cycle correspond donc à un RUL proche de zéro.  
 > Cette métrique n'est pas directement comparable au test set NASA, où les moteurs sont volontairement tronqués avant défaillance.  
 > **La performance principale à retenir : validation all cycles RMSE 21.60 — test NASA RMSE 23.16.**
@@ -391,7 +471,10 @@ Le Random Forest obtient de meilleures performances que la baseline Ridge sur le
 
 Cependant, son score NASA validation est supérieur à celui de la baseline Ridge. Cela signifie que, même si le Random Forest réduit l'erreur moyenne, certaines erreurs sont plus fortement pénalisées par la métrique asymétrique PHM'08, notamment les surestimations du RUL.
 
-Cette observation est importante : en maintenance prédictive, le meilleur modèle statistique n'est pas toujours le plus sûr opérationnellement.
+Cette observation est importante : en maintenance prédictive, le meilleur modèle statistique n'est pas toujours le plus sûr opérationnellement. Saxena et al. soulignent d'ailleurs que la métrique PHM'08 peut être enrichie d'un score de corrélation pour distinguer des algorithmes d'égal score agrégé mais de comportement très différent sur les cas individuels.
+
+> *"Since the metric is a combined aggregate of performance for individual UUTs, an additional correlation metric should be employed to ensure that an algorithm consistently predicts well for all cases."*  
+> — Saxena et al. (2008), p.8, Section VII — [PDF](docs/Damage_Propagation_Modeling.pdf)
 
 Le Random Forest est retenu ici comme modèle principal car il offre le meilleur compromis global sur les métriques classiques et permet de produire des prédictions exploitables dans un dashboard métier. Dans un contexte industriel réel, le choix final du modèle devrait intégrer :
 
@@ -440,9 +523,10 @@ Le dashboard illustre donc la manière dont un modèle de prédiction de RUL peu
 ## Ce que j'ai appris — Décisions techniques clés
 
 - **Séparer preprocessing et feature engineering** permet de mieux contrôler ce qu'on donne au modèle et facilite les itérations.
-- **Valider par moteur et non par ligne** est essentiel sur des données de séries temporelles pour éviter le data leakage.
+- **Valider par moteur et non par ligne** est essentiel sur des données de séries temporelles pour éviter le data leakage — d'autant que chaque moteur du dataset démarre avec un niveau d'usure initial différent et inconnu.
+- **Persister les prédictions en base SQLite** rapproche le projet d'un workflow analytique en entreprise et permet d'écrire des requêtes métier directement exploitables.
 - **Relier les métriques ML à un risque métier** permet de dépasser une simple évaluation statistique et de rendre le modèle exploitable pour la maintenance.
-- **La métrique "last cycle" sur le train set est trompeuse** : les moteurs train vont jusqu'à la panne, contrairement au test set NASA.
+- **La métrique "last cycle" sur le train set est trompeuse** : les moteurs train vont jusqu'à la panne, contrairement au test set NASA dont les RUL sont compris entre 10 et 150 cycles.
 - **Un Random Forest sans optimisation avancée** constitue une baseline non linéaire solide, mais son score NASA montre qu'une amélioration future devrait cibler spécifiquement les erreurs de surestimation du RUL.
 
 ---
@@ -455,6 +539,7 @@ Le dashboard illustre donc la manière dont un modèle de prédiction de RUL peu
 | Données | pandas, numpy |
 | Machine Learning | scikit-learn |
 | Modèles | Ridge Regression, Random Forest |
+| Base de données | SQLite |
 | Évaluation | RMSE, MAE, score NASA/PHM'08 |
 | Visualisation | Plotly, Streamlit |
 | Notebook | Jupyter, matplotlib, seaborn |
@@ -471,9 +556,11 @@ Le projet est organisé pour être relancé de bout en bout :
 3. feature engineering ;
 4. entraînement des modèles ;
 5. génération des prédictions ;
-6. lancement du dashboard Streamlit.
+6. construction de la base SQLite ;
+7. exécution des requêtes SQL métier ;
+8. lancement du dashboard Streamlit.
 
-Les artefacts générés sont sauvegardés dans `data/processed/` et `models/`, ce qui permet de séparer clairement les données brutes, les données transformées, les prédictions et le modèle entraîné.
+Les artefacts générés sont répartis entre trois emplacements distincts : les données transformées dans `data/processed/`, les modèles entraînés dans `models/`, et la base analytique locale dans `database/`. Ce découpage permet de séparer clairement les responsabilités de chaque couche du projet.
 
 ---
 
@@ -491,8 +578,12 @@ venv\Scripts\Activate.ps1  # Windows PowerShell
 # 3. Installer les dépendances
 pip install -r requirements.txt
 
-# 4. Placer les fichiers NASA CMAPSS dans data/raw/
+# 4. Placer les fichiers NASA CMAPSS FD001 dans data/raw/
 # Télécharger ici : https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data
+# Fichiers attendus :
+# - train_FD001.txt
+# - test_FD001.txt
+# - RUL_FD001.txt
 
 # 5. Lancer la pipeline
 python src/ingestion/load.py
@@ -500,7 +591,13 @@ python src/preprocessing/clean.py
 python src/features/engineer.py
 python src/models/train.py
 
-# 6. Lancer le dashboard
+# 6. Construire la base SQLite
+python src/database/db.py
+
+# 7. Exécuter les requêtes SQL métier
+python src/database/run_queries.py
+
+# 8. Lancer le dashboard
 streamlit run dashboard/app.py
 ```
 
@@ -521,13 +618,14 @@ data/processed/validation_predictions.csv
 data/processed/test_predictions.csv
 models/metrics.json
 models/random_forest_rul.joblib
+database/cmapss.db              # générée par db.py, non versionnée
 ```
 
 ---
 
 ## Limites
 
-- Le pipeline est calibré sur **FD001** uniquement : la généralisation à FD002, FD003 et FD004 nécessite une adaptation du preprocessing pour les conditions opérationnelles multiples.
+- Le pipeline est calibré sur **FD001** uniquement : la généralisation à FD002, FD003 et FD004 nécessite une adaptation du preprocessing pour les conditions opérationnelles multiples (FD002 et FD004 couvrent 6 conditions, FD003 et FD004 introduisent un second mode de défaillance — Fan Degradation — selon [dataset_info.txt](docs/dataset_info.txt)).
 - Le seuil de suppression des capteurs, fixé à un écart-type inférieur à 0.5, est justifié par l'EDA mais pourrait être optimisé.
 - La fenêtre de rolling mean de 5 cycles est un choix simple et interprétable, mais pourrait être comparée à d'autres fenêtres.
 - Le Random Forest ne modélise pas explicitement les dépendances temporelles longues.
@@ -543,8 +641,7 @@ models/random_forest_rul.joblib
 - Tester des modèles dédiés aux séries temporelles : LSTM, GRU, Transformer.
 - Ajouter l'importance des variables dans le dashboard.
 - Ajouter MLflow pour le suivi des expériences.
-- Dockeriser l'application.
-- Exposer le modèle via FastAPI.
+- Dockeriser l'application et exposer le modèle via FastAPI.
 
 ---
 
@@ -552,6 +649,8 @@ models/random_forest_rul.joblib
 
 Saxena, A., Goebel, K., Simon, D., & Eklund, N. (2008).  
 *Damage Propagation Modeling for Aircraft Engine Run-to-Failure Simulation.*  
-PHM'08, Denver, CO. — [PDF](docs/Damage_Propagation_Modeling.pdf)
+In Proceedings of the 1st International Conference on Prognostics and Health Management (PHM08), Denver, CO. — [PDF](docs/Damage_Propagation_Modeling.pdf)
+
+Documentation NASA originale du dataset : [docs/dataset_info.txt](docs/dataset_info.txt)
 
 *Données : [NASA CMAPSS Dataset](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data) — open data, usage non commercial*
