@@ -6,7 +6,7 @@
 ![SQLite](https://img.shields.io/badge/SQLite-Analytics-lightgrey)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-Projet Data Science de bout en bout sur le dataset de référence **NASA CMAPSS FD001**.
+Projet Data Science de bout en bout sur le dataset **NASA CMAPSS FD001**.
 
 L'objectif est de prédire la **durée de vie résiduelle** d'un moteur industriel, appelée **RUL — Remaining Useful Life**, à partir de signaux capteurs.  
 Le projet couvre toute la chaîne : ingestion, exploration, preprocessing, feature engineering, modélisation, évaluation, couche analytique SQL et dashboard Streamlit orienté aide à la décision.
