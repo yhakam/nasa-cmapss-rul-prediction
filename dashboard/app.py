@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ st.set_page_config(
     layout="wide",
 )
 
+DATABASE_PATH = Path("database/cmapss.db")
 PROCESSED_DIR = Path("data/processed")
 MODELS_DIR = Path("models")
 
@@ -51,8 +53,40 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         st.write(missing_files)
         st.stop()
 
-    test_pred = pd.read_csv(PROCESSED_DIR / "test_predictions.csv")
-    test_features = pd.read_csv(PROCESSED_DIR / "test_features.csv")
+    if DATABASE_PATH.exists():
+        conn = sqlite3.connect(DATABASE_PATH)
+
+        test_pred = pd.read_sql_query(
+            """
+            SELECT
+                unit_id,
+                last_cycle,
+                true_rul AS true_RUL,
+                predicted_rul AS predicted_RUL,
+                absolute_error,
+                risk_level
+            FROM predictions
+            ORDER BY
+                CASE risk_level
+                    WHEN 'HIGH' THEN 1
+                    WHEN 'MEDIUM' THEN 2
+                    WHEN 'LOW' THEN 3
+                END,
+                predicted_rul ASC
+            """,
+            conn,
+        )
+
+        test_features = pd.read_sql_query(
+            "SELECT * FROM sensor_readings",
+            conn,
+        )
+
+        conn.close()
+
+    else:
+        test_pred = pd.read_csv(PROCESSED_DIR / "test_predictions.csv")
+        test_features = pd.read_csv(PROCESSED_DIR / "test_features.csv")
 
     with open(MODELS_DIR / "metrics.json", "r", encoding="utf-8") as f:
         metrics = json.load(f)
@@ -79,6 +113,7 @@ def build_model_comparison(metrics: dict[str, Any]) -> pd.DataFrame:
             },
         ]
     )
+
 
 def prepare_display_table(test_pred: pd.DataFrame) -> pd.DataFrame:
     df_display = test_pred[
@@ -219,14 +254,18 @@ fig_risk = px.bar(
 fig_risk.update_layout(showlegend=False)
 fig_risk.update_traces(textposition="outside")
 
-st.plotly_chart(fig_risk, use_container_width=True)
+st.plotly_chart(fig_risk, width='stretch')
+
+st.subheader("Moteurs à prioriser")
+
+if DATABASE_PATH.exists():
+    st.caption("Table chargée depuis SQLite — triée par niveau de risque puis par RUL prédit croissant.")
+else:
+    st.caption("Table chargée depuis les fichiers CSV — triée par niveau de risque puis par RUL prédit croissant.")
 
 priority_table = prepare_display_table(test_pred)
 
-st.subheader("Moteurs à prioriser")
-st.caption("Table triée par niveau de risque puis par RUL prédit croissant.")
-
-st.dataframe(priority_table, use_container_width=True, hide_index=True)
+st.dataframe(priority_table, width='stretch', hide_index=True)
 
 st.divider()
 
@@ -305,7 +344,7 @@ fig_sensor.update_layout(
     legend=dict(orientation="h"),
 )
 
-st.plotly_chart(fig_sensor, use_container_width=True)
+st.plotly_chart(fig_sensor, width='stretch')
 
 st.caption(
     """
@@ -342,7 +381,7 @@ col_m2.metric(
 col_m3.metric(
     "Score NASA",
     f"{nasa:.0f}",
-    help="Score asymétrique PHM'08 : les erreurs dangereuses sont davantage pénalisées.",
+    help="Score asymétrique PHM'08. Plus il est faible, meilleure est la performance. Les erreurs dangereuses sont davantage pénalisées.",
 )
 
 col_left, col_right = st.columns(2)
@@ -382,7 +421,7 @@ with col_left:
         line=dict(color="gray", dash="dash"),
     )
 
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    st.plotly_chart(fig_scatter, width='stretch')
 
 with col_right:
     fig_error = px.histogram(
@@ -398,7 +437,7 @@ with col_right:
         },
     )
 
-    st.plotly_chart(fig_error, use_container_width=True)
+    st.plotly_chart(fig_error, width='stretch')
 
 st.divider()
 
@@ -415,7 +454,7 @@ Cette amélioration se traduit par une RMSE et une MAE plus faibles, deux métri
 
 comparison_df = build_model_comparison(metrics)
 
-st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+st.dataframe(comparison_df, width='stretch', hide_index=True)
 
 fig_comparison = px.bar(
     comparison_df,
@@ -431,7 +470,7 @@ fig_comparison = px.bar(
     labels={"RMSE": "RMSE (cycles)"},
 )
 
-st.plotly_chart(fig_comparison, use_container_width=True)
+st.plotly_chart(fig_comparison, width='stretch')
 
 st.divider()
 
