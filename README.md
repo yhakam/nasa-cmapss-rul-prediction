@@ -409,8 +409,8 @@ où :
 
 - $\widehat{RUL}_i$ correspond au RUL prédit ;
 - $RUL_i$ correspond au RUL réel ;
-- $d_i < 0$ signifie que le modèle sous-estime le RUL (pénalité plus faible) ;
-- $d_i \geq 0$ signifie que le modèle surestime le RUL (pénalité plus forte).
+- $d_i < 0$ signifie que le modèle sous-estime le RUL ;
+- $d_i \geq 0$ signifie que le modèle surestime le RUL.
 
 Le NASA Score n'est pas borné et ne s'interprète pas comme un pourcentage ou une note sur 100.  
 Plus le score est faible, meilleur est le modèle. Un score de 0 correspondrait à des prédictions parfaites.
@@ -433,15 +433,14 @@ Deux modèles sont comparés :
 
 ### Résultats validation — tous les cycles
 
-| Modèle | RMSE | MAE | Score NASA |
-|---|---:|---:|---:|
-| Ridge baseline | 24.73 | 19.39 | 58,702.96 |
-| Random Forest | **21.60** | **15.98** | 91,895.86 |
+| Modèle | RMSE | MAE |
+|---|---:|---:|
+| Ridge baseline | 24.73 | 19.39 |
+| Random Forest | **21.60** | **15.98** |
 
-Le Random Forest améliore la RMSE et la MAE par rapport à la baseline Ridge.  
-Son score NASA est cependant plus élevé, ce qui indique que certaines erreurs sont davantage pénalisées par la métrique asymétrique PHM'08.
+Le Random Forest améliore la RMSE et la MAE par rapport à la baseline Ridge sur la validation interne.
 
-Cela montre qu'un modèle peut être meilleur en erreur moyenne tout en étant moins favorable selon une métrique métier asymétrique. Le choix du modèle dépend donc du compromis recherché entre précision globale et criticité des erreurs.
+Le NASA Score n'est pas reporté sur cette évaluation, car il est principalement pertinent dans un scénario de prédiction finale du RUL par moteur. L'évaluation "tous les cycles" sert ici à comparer les erreurs moyennes des modèles sur l'ensemble des observations disponibles.
 
 ---
 
@@ -451,7 +450,7 @@ Cela montre qu'un modèle peut être meilleur en erreur moyenne tout en étant m
 |---|---:|
 | RMSE | **23.16 cycles** |
 | MAE | **16.72 cycles** |
-| Score NASA/PHM'08 | **5,331.90** |
+| Score NASA | **5,331.90** |
 
 Le test set NASA est évalué sur les 100 moteurs test, à partir du dernier cycle observé pour chaque moteur.  
 Contrairement au train set, les moteurs test sont tronqués avant la panne — leurs RUL réels sont compris entre 10 et 150 cycles (Saxena et al., 2008, p.7, Section VI — [PDF](docs/Damage_Propagation_Modeling.pdf)).
@@ -469,17 +468,19 @@ Contrairement au train set, les moteurs test sont tronqués avant la panne — l
 
 Le Random Forest obtient de meilleures performances que la baseline Ridge sur les métriques classiques, avec une RMSE validation de **21.60 cycles** et une RMSE test de **23.16 cycles**.
 
-Cependant, son score NASA validation est supérieur à celui de la baseline Ridge. Cela signifie que, même si le Random Forest réduit l'erreur moyenne, certaines erreurs sont plus fortement pénalisées par la métrique asymétrique PHM'08, notamment les surestimations du RUL.
+Cette observation reste toutefois à compléter par une analyse plus fine des erreurs. En maintenance prédictive, il ne suffit pas de réduire l'erreur moyenne : il faut aussi surveiller les surestimations du RUL, car elles peuvent retarder une intervention de maintenance.
 
-Cette observation est importante : en maintenance prédictive, le meilleur modèle statistique n'est pas toujours le plus sûr opérationnellement. Saxena et al. soulignent d'ailleurs que la métrique PHM'08 peut être enrichie d'un score de corrélation pour distinguer des algorithmes d'égal score agrégé mais de comportement très différent sur les cas individuels.
+Saxena et al. soulignent d'ailleurs que la métrique PHM'08 peut être enrichie d'un score de corrélation pour distinguer des algorithmes d'égal score agrégé mais de comportement très différent sur les cas individuels.
 
 > *"Since the metric is a combined aggregate of performance for individual UUTs, an additional correlation metric should be employed to ensure that an algorithm consistently predicts well for all cases."*  
 > — Saxena et al. (2008), p.8, Section VII — [PDF](docs/Damage_Propagation_Modeling.pdf)
 
-Le Random Forest est retenu ici comme modèle principal car il offre le meilleur compromis global sur les métriques classiques et permet de produire des prédictions exploitables dans un dashboard métier. Dans un contexte industriel réel, le choix final du modèle devrait intégrer :
+Le Random Forest est retenu ici comme modèle principal car il obtient les meilleures performances sur les métriques classiques de régression, avec une RMSE validation de **21.60 cycles** et une RMSE test de **23.16 cycles**. Il permet également de produire des prédictions exploitables dans un dashboard métier de priorisation maintenance.
+
+Dans un contexte industriel réel, le choix final du modèle devrait aussi intégrer :
 
 - la précision globale ;
-- la fréquence des surestimations du RUL ;
+- la fréquence et l'amplitude des surestimations du RUL ;
 - le coût d'une maintenance anticipée ;
 - le coût d'une panne non anticipée ;
 - les contraintes opérationnelles de l'équipe maintenance.
@@ -527,7 +528,7 @@ Le dashboard illustre donc la manière dont un modèle de prédiction de RUL peu
 - **Persister les prédictions en base SQLite** rapproche le projet d'un workflow analytique en entreprise et permet d'écrire des requêtes métier directement exploitables.
 - **Relier les métriques ML à un risque métier** permet de dépasser une simple évaluation statistique et de rendre le modèle exploitable pour la maintenance.
 - **La métrique "last cycle" sur le train set est trompeuse** : les moteurs train vont jusqu'à la panne, contrairement au test set NASA dont les RUL sont compris entre 10 et 150 cycles.
-- **Un Random Forest sans optimisation avancée** constitue une baseline non linéaire solide, mais son score NASA montre qu'une amélioration future devrait cibler spécifiquement les erreurs de surestimation du RUL.
+- **Un Random Forest sans optimisation avancée** constitue une baseline non linéaire solide, mais une amélioration future devrait analyser plus finement les surestimations du RUL, car elles sont les erreurs les plus critiques en maintenance prédictive.
 
 ---
 
@@ -540,7 +541,7 @@ Le dashboard illustre donc la manière dont un modèle de prédiction de RUL peu
 | Machine Learning | scikit-learn |
 | Modèles | Ridge Regression, Random Forest |
 | Base de données | SQLite |
-| Évaluation | RMSE, MAE, score NASA/PHM'08 |
+| Évaluation | RMSE, MAE, score NASA |
 | Visualisation | Plotly, Streamlit |
 | Notebook | Jupyter, matplotlib, seaborn |
 | Sérialisation | joblib |
