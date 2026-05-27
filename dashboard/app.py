@@ -8,6 +8,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from typing import Any
+
+PLOTLY_LAYOUT: dict[str, Any] = {
+    "template": "plotly_white",
+    "margin": {"l": 20, "r": 20, "t": 50, "b": 20},
+}
 
 st.set_page_config(
     page_title="NASA CMAPSS — Maintenance Prédictive",
